@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
+import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { Entry } from '@/lib/validation';
 
 export default function SeccionesPage() {
@@ -32,39 +32,8 @@ export default function SeccionesPage() {
     }
   };
 
-  const loadEntries = async () => {
-    if (!selectedSeccion) return;
-
-    setIsLoading(true);
-    try {
-      // Extract just the number from format "(3877) - MIRA FLORES..."
-      const match = selectedSeccion.match(/\((\d+)\)/);
-      const seccionNumber = match ? match[1] : selectedSeccion;
-
-      const params = new URLSearchParams({
-        seccion: seccionNumber,
-        limit: '1000', // Load all entries
-      });
-
-      const response = await fetch(`/api/secciones?${params.toString()}`);
-      const data = await response.json();
-
-      setAllEntries(data.entries);
-      setTotalCount(data.totalCount);
-      setCurrentPage(1); // Reset to first page
-      
-      // Set first page entries
-      setEntries(data.entries.slice(0, itemsPerPage));
-    } catch (error) {
-      console.error('Error loading entries:', error);
-      alert('Error al cargar las entradas');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSeccionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedSeccion(e.target.value);
+  const handleSeccionChange = (value: string) => {
+    setSelectedSeccion(value);
     setEntries([]);
     setAllEntries([]);
     setTotalCount(0);
@@ -81,9 +50,43 @@ export default function SeccionesPage() {
 
   useEffect(() => {
     if (selectedSeccion) {
-      loadEntries();
+      const loadData = async () => {
+        setIsLoading(true);
+        try {
+          // Extract just the number from format "(3877) - MIRA FLORES..."
+          const match = selectedSeccion.match(/\((\d+)\)/);
+          const seccionNumber = match ? match[1] : selectedSeccion;
+
+          const params = new URLSearchParams({
+            seccion: seccionNumber,
+            limit: '1000', // Load all entries
+          });
+
+          const response = await fetch(`/api/secciones?${params.toString()}`);
+          const data = await response.json();
+
+          setAllEntries(data.entries);
+          setTotalCount(data.totalCount);
+          setCurrentPage(1); // Reset to first page
+          
+          // Set first page entries
+          setEntries(data.entries.slice(0, itemsPerPage));
+        } catch (error) {
+          console.error('Error loading entries:', error);
+          alert('Error al cargar las entradas');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadData();
+    } else {
+      // Clear entries when no section selected
+      setEntries([]);
+      setAllEntries([]);
+      setTotalCount(0);
     }
-  }, [selectedSeccion]);
+  }, [selectedSeccion, itemsPerPage]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -111,9 +114,10 @@ export default function SeccionesPage() {
 
         {/* Sección Selector */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="max-w-md">
-            <Select
-              label="Seleccionar Sección Electoral"
+          <div className="max-w-full">
+            <Autocomplete
+              label="Buscar Sección Electoral"
+              placeholder="Escribe el número o nombre de la sección..."
               value={selectedSeccion}
               onChange={handleSeccionChange}
               options={secciones}

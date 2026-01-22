@@ -7,7 +7,7 @@ export const entrySchema = z.object({
   segundoNombre: z.string().optional(),
   apellidos: z.string().min(1, 'Apellidos son requeridos'),
   telefono: z.string().optional(),
-  metodoContacto: z.union([z.enum(['telefono', 'whatsapp', 'email', 'presencial']), z.literal('')]).optional(),
+  metodoContacto: z.string().optional(),
   fechaNacimiento: z.string().optional(),
   seccionElectoral: z.string().optional(),
   casilla: z.string().optional(), // Full section text: "(3877) - 20 DE NOVIEMBRE..."

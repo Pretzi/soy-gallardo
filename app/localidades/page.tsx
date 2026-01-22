@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
+import { Autocomplete } from '@/components/ui/Autocomplete';
 import type { Entry } from '@/lib/validation';
 
 export default function LocalidadesPage() {
@@ -32,35 +32,8 @@ export default function LocalidadesPage() {
     }
   };
 
-  const loadEntries = async () => {
-    if (!selectedLocalidad) return;
-
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        localidad: selectedLocalidad,
-        limit: '1000', // Load all entries
-      });
-
-      const response = await fetch(`/api/localidades?${params.toString()}`);
-      const data = await response.json();
-
-      setAllEntries(data.entries);
-      setTotalCount(data.totalCount);
-      setCurrentPage(1); // Reset to first page
-      
-      // Set first page entries
-      setEntries(data.entries.slice(0, itemsPerPage));
-    } catch (error) {
-      console.error('Error loading entries:', error);
-      alert('Error al cargar las entradas');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleLocalidadChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedLocalidad(e.target.value);
+  const handleLocalidadChange = (value: string) => {
+    setSelectedLocalidad(value);
     setEntries([]);
     setAllEntries([]);
     setTotalCount(0);
@@ -77,9 +50,39 @@ export default function LocalidadesPage() {
 
   useEffect(() => {
     if (selectedLocalidad) {
-      loadEntries();
+      const loadData = async () => {
+        setIsLoading(true);
+        try {
+          const params = new URLSearchParams({
+            localidad: selectedLocalidad,
+            limit: '1000', // Load all entries
+          });
+
+          const response = await fetch(`/api/localidades?${params.toString()}`);
+          const data = await response.json();
+
+          setAllEntries(data.entries);
+          setTotalCount(data.totalCount);
+          setCurrentPage(1); // Reset to first page
+          
+          // Set first page entries
+          setEntries(data.entries.slice(0, itemsPerPage));
+        } catch (error) {
+          console.error('Error loading entries:', error);
+          alert('Error al cargar las entradas');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadData();
+    } else {
+      // Clear entries when no localidad selected
+      setEntries([]);
+      setAllEntries([]);
+      setTotalCount(0);
     }
-  }, [selectedLocalidad]);
+  }, [selectedLocalidad, itemsPerPage]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -107,9 +110,10 @@ export default function LocalidadesPage() {
 
         {/* Localidad Selector */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="max-w-md">
-            <Select
-              label="Seleccionar Localidad"
+          <div className="max-w-full">
+            <Autocomplete
+              label="Buscar Localidad"
+              placeholder="Escribe el nombre de la localidad..."
               value={selectedLocalidad}
               onChange={handleLocalidadChange}
               options={localidades}

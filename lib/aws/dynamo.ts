@@ -155,6 +155,10 @@ export async function createEntry(data: EntryCreate): Promise<Entry> {
         GSI1SK: `ENTRY#${id}`,
         GSI2PK: `NAME#${normalizedName}`,
         GSI2SK: `ENTRY#${id}`,
+        GSI3PK: entry.localidad ? `LOCALIDAD#${entry.localidad}` : undefined,
+        GSI3SK: entry.localidad ? `ENTRY#${id}` : undefined,
+        GSI4PK: entry.seccionElectoral ? `SECCION#${entry.seccionElectoral}` : undefined,
+        GSI4SK: entry.seccionElectoral ? `ENTRY#${id}` : undefined,
         ...entry,
       },
     })
@@ -211,6 +215,10 @@ export async function updateEntry(id: string, data: EntryUpdate): Promise<Entry 
         GSI1SK: `ENTRY#${id}`,
         GSI2PK: `NAME#${normalizedName}`,
         GSI2SK: `ENTRY#${id}`,
+        GSI3PK: updatedEntry.localidad ? `LOCALIDAD#${updatedEntry.localidad}` : undefined,
+        GSI3SK: updatedEntry.localidad ? `ENTRY#${id}` : undefined,
+        GSI4PK: updatedEntry.seccionElectoral ? `SECCION#${updatedEntry.seccionElectoral}` : undefined,
+        GSI4SK: updatedEntry.seccionElectoral ? `ENTRY#${id}` : undefined,
         ...updatedEntry,
       },
     })

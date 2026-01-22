@@ -135,6 +135,8 @@ async function importEntry(row: CSVRow, index: number): Promise<boolean> {
     const apellidos = row.apellidos?.trim() || '';
     const fullName = [nombre, segundoNombre, apellidos].filter(Boolean).join(' ').toUpperCase();
     
+    const localidad = row.localidad?.trim().toUpperCase() || '';
+    
     const entry = {
       PK: `ENTRY#${id}`,
       SK: `METADATA`,
@@ -142,6 +144,10 @@ async function importEntry(row: CSVRow, index: number): Promise<boolean> {
       GSI1SK: `ENTRY#${id}`,
       GSI2PK: `NAME#${fullName}`,
       GSI2SK: `ENTRY#${id}`,
+      GSI3PK: localidad ? `LOCALIDAD#${localidad}` : undefined,
+      GSI3SK: localidad ? `ENTRY#${id}` : undefined,
+      GSI4PK: seccionElectoral ? `SECCION#${seccionElectoral}` : undefined,
+      GSI4SK: seccionElectoral ? `ENTRY#${id}` : undefined,
       id,
       folio: row.folio.trim(),
       nombre: nombre,
@@ -152,7 +158,7 @@ async function importEntry(row: CSVRow, index: number): Promise<boolean> {
       fechaNacimiento: fechaNacimiento,
       seccionElectoral: seccionElectoral,
       casilla: casilla, // Full section text
-      localidad: '', // Will be filled manually
+      localidad: localidad, // Read from CSV
       zona: row.zona?.trim() || '',
       cargo: cargo, // Position/role
       notasApoyos: notasApoyos,

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import type { Entry, EntryCreate } from '@/lib/validation';
@@ -49,6 +50,8 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
   const [ineBackDeleted, setIneBackDeleted] = useState(false);
   const [localidades, setLocalidades] = useState<string[]>([]);
   const [secciones, setSecciones] = useState<string[]>([]);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ message: string; entryId: string; folio: string } | null>(null);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   
   // Sync initial data changes with form data
   useEffect(() => {
@@ -103,6 +106,79 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
       setSecciones(sec.secciones || sec);
     });
   }, []);
+
+  // Check for duplicate names
+  useEffect(() => {
+    const checkDuplicate = async () => {
+      const { nombre, segundoNombre, apellidos } = formData;
+      
+      // Only check if we have at least nombre and apellidos
+      if (!nombre || !apellidos) {
+        setDuplicateWarning(null);
+        return;
+      }
+
+      // Build full name for search
+      const fullName = [nombre, segundoNombre, apellidos].filter(Boolean).join(' ').trim();
+      if (fullName.length < 3) {
+        setDuplicateWarning(null);
+        return;
+      }
+
+      setIsCheckingDuplicate(true);
+      
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(fullName)}`);
+        const data = await response.json();
+        
+        if (data.entries && data.entries.length > 0) {
+          // Filter out the current entry if we're editing
+          const duplicates = data.entries.filter((entry: any) => {
+            // If we have initialData with an id, exclude it from duplicates
+            if (initialData?.id && entry.id === initialData.id) {
+              return false;
+            }
+            
+            // Check if names match exactly (case-insensitive)
+            const entryFullName = [entry.nombre, entry.segundoNombre, entry.apellidos]
+              .filter(Boolean)
+              .join(' ')
+              .trim()
+              .toUpperCase();
+            const formFullName = [nombre, segundoNombre, apellidos]
+              .filter(Boolean)
+              .join(' ')
+              .trim()
+              .toUpperCase();
+            
+            return entryFullName === formFullName;
+          });
+
+          if (duplicates.length > 0) {
+            const duplicate = duplicates[0];
+            setDuplicateWarning({
+              message: `Ya existe una entrada con este nombre: ${duplicate.nombre} ${duplicate.segundoNombre || ''} ${duplicate.apellidos}`,
+              entryId: duplicate.id,
+              folio: duplicate.folio,
+            });
+          } else {
+            setDuplicateWarning(null);
+          }
+        } else {
+          setDuplicateWarning(null);
+        }
+      } catch (error) {
+        console.error('Error checking duplicate:', error);
+        setDuplicateWarning(null);
+      } finally {
+        setIsCheckingDuplicate(false);
+      }
+    };
+
+    // Debounce the check
+    const timeoutId = setTimeout(checkDuplicate, 800);
+    return () => clearTimeout(timeoutId);
+  }, [formData.nombre, formData.segundoNombre, formData.apellidos, initialData?.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -308,7 +384,45 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
           required
           className="uppercase"
         />
+      </div>
 
+      {/* Duplicate Warning */}
+      {isCheckingDuplicate && (
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-700">🔍 Verificando si existe una entrada duplicada...</p>
+        </div>
+      )}
+      
+      {duplicateWarning && (
+        <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-yellow-800">Posible Entrada Duplicada</h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>{duplicateWarning.message}</p>
+                <p className="mt-1">Folio: <span className="font-semibold">{duplicateWarning.folio}</span></p>
+              </div>
+              <div className="mt-3">
+                <a
+                  href={`/entries/${duplicateWarning.entryId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
+                >
+                  Ver entrada existente →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           label="Teléfono"
           name="telefono"
@@ -342,22 +456,44 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
           error={errors.fechaNacimiento}
         />
 
-        <Select
+        <Autocomplete
           label="Sección Electoral"
-          name="seccionElectoral"
-          value={formData.seccionElectoral}
-          onChange={handleChange}
-          error={errors.seccionElectoral}
+          placeholder="Buscar sección..."
           options={secciones}
+          value={(() => {
+            // If we have a section number (e.g., "3877"), find the full text
+            const seccion = formData.seccionElectoral;
+            if (!seccion) return '';
+            
+            // If it's already the full format "(3877) - ...", return it
+            if (seccion.startsWith('(')) return seccion;
+            
+            // Otherwise, find the matching full section from the options
+            const match = secciones.find(s => {
+              const numberMatch = s.match(/\((\d+)\)/);
+              return numberMatch && numberMatch[1] === seccion;
+            });
+            
+            return match || seccion;
+          })()}
+          onChange={(value) => {
+            // Extract just the number from the selected section
+            const match = value.match(/\((\d+)\)/);
+            const seccionNumber = match ? match[1] : value;
+            setFormData((prev) => ({ ...prev, seccionElectoral: seccionNumber }));
+          }}
+          error={errors.seccionElectoral}
         />
 
-        <Select
+        <Autocomplete
           label="Localidad"
-          name="localidad"
-          value={formData.localidad}
-          onChange={handleChange}
-          error={errors.localidad}
+          placeholder="Buscar localidad..."
           options={localidades}
+          value={formData.localidad || ''}
+          onChange={(value) => {
+            setFormData((prev) => ({ ...prev, localidad: value.toUpperCase() }));
+          }}
+          error={errors.localidad}
         />
       </div>
 
