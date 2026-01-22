@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { HeaderNav } from "@/components/HeaderNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,20 +30,23 @@ export default function RootLayout({
       >
         <header className="bg-white border-b-4 border-orange-500 shadow-md">
           <div className="container mx-auto px-4 py-3 md:py-2">
-            <div className="flex items-center gap-3 md:gap-4">
-              <img 
-                src="/logo-2.png" 
-                alt="Soy Gallardo Logo" 
-                className="h-12 md:h-12 w-auto flex-shrink-0"
-              />
-              <div className="min-w-0">
-                <h1 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 leading-tight">
-                  Soy <span className="font-extrabold text-orange-600">Gallardo</span>
-                </h1>
-                <p className="text-base md:text-base font-normal text-gray-700 leading-tight">
-                  y obtengo beneficios.
-                </p>
+            <div className="flex items-center justify-between gap-3 md:gap-4">
+              <div className="flex items-center gap-3 md:gap-4">
+                <img 
+                  src="/logo-2.png" 
+                  alt="Soy Gallardo Logo" 
+                  className="h-12 md:h-12 w-auto flex-shrink-0"
+                />
+                <div className="min-w-0">
+                  <h1 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 leading-tight">
+                    Soy <span className="font-extrabold text-orange-600">Gallardo</span>
+                  </h1>
+                  <p className="text-base md:text-base font-normal text-gray-700 leading-tight">
+                    y obtengo beneficios.
+                  </p>
+                </div>
               </div>
+              <HeaderNav />
             </div>
           </div>
         </header>
