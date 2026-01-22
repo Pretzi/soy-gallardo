@@ -135,8 +135,7 @@ export async function createEntry(data: EntryCreate): Promise<Entry> {
     nombre: data.nombre,
     segundoNombre: data.segundoNombre,
     apellidos: data.apellidos,
-  });
-  const normalizedName = normalizeForSearch(fullName);
+  }).toUpperCase();
 
   const entry: Entry = {
     ...data,
@@ -153,7 +152,7 @@ export async function createEntry(data: EntryCreate): Promise<Entry> {
         SK: `METADATA`,
         GSI1PK: `FOLIO#${data.folio}`,
         GSI1SK: `ENTRY#${id}`,
-        GSI2PK: `NAME#${normalizedName}`,
+        GSI2PK: `NAME#${fullName}`,
         GSI2SK: `ENTRY#${id}`,
         GSI3PK: entry.localidad ? `LOCALIDAD#${entry.localidad}` : undefined,
         GSI3SK: entry.localidad ? `ENTRY#${id}` : undefined,
@@ -197,13 +196,12 @@ export async function updateEntry(id: string, data: EntryUpdate): Promise<Entry 
   const now = new Date().toISOString();
   const updatedEntry = { ...existing, ...data, updatedAt: now };
 
-  // Recalculate normalized name if name fields changed
+  // Recalculate full name for search (use UPPERCASE to match import script)
   const fullName = formatFullName({
     nombre: updatedEntry.nombre,
     segundoNombre: updatedEntry.segundoNombre,
     apellidos: updatedEntry.apellidos,
-  });
-  const normalizedName = normalizeForSearch(fullName);
+  }).toUpperCase();
 
   await docClient.send(
     new PutCommand({
@@ -213,7 +211,7 @@ export async function updateEntry(id: string, data: EntryUpdate): Promise<Entry 
         SK: `METADATA`,
         GSI1PK: `FOLIO#${updatedEntry.folio}`,
         GSI1SK: `ENTRY#${id}`,
-        GSI2PK: `NAME#${normalizedName}`,
+        GSI2PK: `NAME#${fullName}`,
         GSI2SK: `ENTRY#${id}`,
         GSI3PK: updatedEntry.localidad ? `LOCALIDAD#${updatedEntry.localidad}` : undefined,
         GSI3SK: updatedEntry.localidad ? `ENTRY#${id}` : undefined,
