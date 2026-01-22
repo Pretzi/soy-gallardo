@@ -13,6 +13,7 @@ interface CSVRow {
   cumpleanos?: string;
   seccionCasilla?: string;
   zona?: string;
+  localidad?: string;
   cargo?: string; // For entries-2.csv
   pollas?: string;
   despensas?: string;

@@ -9,6 +9,7 @@ interface AutocompleteProps {
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  error?: string;
 }
 
 export function Autocomplete({
@@ -18,6 +19,7 @@ export function Autocomplete({
   value,
   onChange,
   required = false,
+  error,
 }: AutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
@@ -161,6 +163,7 @@ export function Autocomplete({
           </div>
         )}
       </div>
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   );
 }

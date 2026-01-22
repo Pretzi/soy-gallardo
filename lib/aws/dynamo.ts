@@ -235,9 +235,10 @@ export async function listEntries(limit: number = 50, lastEvaluatedKey?: Record<
   // Scan all items first (without limit) to sort properly
   const allItems: any[] = [];
   let scanLastKey: Record<string, any> | undefined = undefined;
+  let result: any;
 
   do {
-    const result = await docClient.send(
+    result = await docClient.send(
       new ScanCommand({
         TableName: TABLE_NAME,
         FilterExpression: 'begins_with(PK, :prefix)',

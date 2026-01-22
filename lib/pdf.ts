@@ -46,11 +46,11 @@ export async function generateEntryPDF(entry: Entry, selfieBuffer?: Buffer): Pro
   // Draw all fields
   drawField('Folio', entry.folio);
   drawField('Nombre Completo', formatFullName(entry));
-  drawField('Teléfono', entry.telefono);
-  drawField('Método de Contacto', entry.metodoContacto);
-  drawField('Fecha de Nacimiento', entry.fechaNacimiento);
-  drawField('Sección Electoral', entry.seccionElectoral);
-  drawField('Localidad', entry.localidad);
+  drawField('Teléfono', entry.telefono || '');
+  drawField('Método de Contacto', entry.metodoContacto || '');
+  drawField('Fecha de Nacimiento', entry.fechaNacimiento || '');
+  drawField('Sección Electoral', entry.seccionElectoral || '');
+  drawField('Localidad', entry.localidad || '');
   
   yPosition -= 10;
   

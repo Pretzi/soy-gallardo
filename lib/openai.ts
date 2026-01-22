@@ -125,9 +125,13 @@ export async function processImageOnWhiteBackground(imageBuffer: Buffer): Promis
 
     console.log('✅ DALL-E generation complete');
 
+    if (!imageResponse.data || imageResponse.data.length === 0) {
+      throw new Error('No se recibió imagen generada de DALL-E');
+    }
+
     const generatedImageUrl = imageResponse.data[0]?.url;
     if (!generatedImageUrl) {
-      throw new Error('No se recibió imagen generada de DALL-E');
+      throw new Error('No se recibió URL de imagen generada de DALL-E');
     }
 
     console.log(`📥 Downloading generated image from: ${generatedImageUrl}`);
