@@ -1,0 +1,4 @@
+folio,nombre,segundoNombre,apellidos,telefono,metodoContacto,fechaNacimiento,seccionElectoral,zona,localidad,notasApoyos
+FOL001,Juan,Carlos,Pérez García,5551234567,telefono,1985-03-15,1001,Norte,Ciudad de México,Apoyo confirmado
+FOL002,María,Elena,López Martínez,5559876543,whatsapp,1990-07-22,1002,Sur,Guadalajara,Contacto por whatsapp
+FOL003,Pedro,,Ramírez Sánchez,5551112233,telefono,1988-11-30,1003,Este,Monterrey,Requiere seguimiento
