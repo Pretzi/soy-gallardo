@@ -31,25 +31,9 @@ export { docClient, TABLE_NAME };
 // Helper function for numerical folio sorting
 function sortByFolioDescending(entries: Entry[]): void {
   entries.sort((a, b) => {
-    const folioA = a.folio || '';
-    const folioB = b.folio || '';
-    
-    const parseFolio = (folio: string): number[] => {
-      return folio.split('.').map(segment => parseInt(segment, 10) || 0);
-    };
-    
-    const segmentsA = parseFolio(folioA);
-    const segmentsB = parseFolio(folioB);
-    
-    for (let i = 0; i < Math.max(segmentsA.length, segmentsB.length); i++) {
-      const valA = segmentsA[i] || 0;
-      const valB = segmentsB[i] || 0;
-      if (valA !== valB) {
-        return valB - valA; // Descending order
-      }
-    }
-    
-    return 0;
+    const folioA = parseInt(a.folio || '0', 10);
+    const folioB = parseInt(b.folio || '0', 10);
+    return folioB - folioA; // Descending order (latest first)
   });
 }
 
@@ -74,30 +58,26 @@ export async function getLatestFolio(): Promise<string> {
     );
 
     if (!result.Items || result.Items.length === 0) {
-      // No entries yet, start with 000.000.001
-      return '000.000.001';
+      // No entries yet, start with 000001
+      return '000001';
     }
 
     // Sort folios numerically to get the highest
     const folios = result.Items.map(item => item.folio as string)
-      .filter(folio => folio && /^\d{3}\.\d{3}\.\d{3}$/.test(folio)); // Validate format
+      .filter(folio => folio && /^\d{6}$/.test(folio)); // Validate 6-digit format
 
     if (folios.length === 0) {
-      return '000.000.001';
+      return '000001';
     }
 
     // Convert to numbers for sorting
-    const numericFolios = folios.map(folio => {
-      const parts = folio.split('.');
-      return parseInt(parts.join(''), 10);
-    });
+    const numericFolios = folios.map(folio => parseInt(folio, 10));
 
     const maxFolio = Math.max(...numericFolios);
     const nextFolio = maxFolio + 1;
 
-    // Convert back to format 000.000.001
-    const nextFolioStr = nextFolio.toString().padStart(9, '0');
-    return `${nextFolioStr.slice(0, 3)}.${nextFolioStr.slice(3, 6)}.${nextFolioStr.slice(6, 9)}`;
+    // Convert back to 6-digit format (e.g., 000001, 000002, etc.)
+    return nextFolio.toString().padStart(6, '0');
   } catch (error) {
     console.error('Error getting latest folio:', error);
     throw new Error('No se pudo obtener el último folio');
@@ -261,27 +241,10 @@ export async function listEntries(limit: number = 50, lastEvaluatedKey?: Record<
   });
 
   allEntries.sort((a, b) => {
-    const folioA = a.folio || '';
-    const folioB = b.folio || '';
-    
-    // Parse folio segments as numbers for proper sorting (e.g., "000.000.999" -> [0, 0, 999])
-    const parsefolio = (folio: string): number[] => {
-      return folio.split('.').map(segment => parseInt(segment, 10) || 0);
-    };
-    
-    const segmentsA = parsefolio(folioA);
-    const segmentsB = parsefolio(folioB);
-    
-    // Compare each segment numerically
-    for (let i = 0; i < Math.max(segmentsA.length, segmentsB.length); i++) {
-      const valA = segmentsA[i] || 0;
-      const valB = segmentsB[i] || 0;
-      if (valA !== valB) {
-        return valB - valA; // Descending order (latest first)
-      }
-    }
-    
-    return 0;
+    // Parse folios as integers for proper sorting (e.g., "000001" -> 1, "000123" -> 123)
+    const folioA = parseInt(a.folio || '0', 10);
+    const folioB = parseInt(b.folio || '0', 10);
+    return folioB - folioA; // Descending order (latest first)
   });
 
   // Implement pagination after sorting
