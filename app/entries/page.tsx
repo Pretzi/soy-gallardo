@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -8,10 +8,14 @@ import type { Entry } from '@/lib/validation';
 
 export default function EntriesPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Entry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     loadEntries();
@@ -20,15 +24,27 @@ export default function EntriesPage() {
   const loadEntries = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/entries?limit=100');
+      const response = await fetch('/api/entries?limit=1000');
       const data = await response.json();
-      setEntries(data.entries);
+      setAllEntries(data.entries);
+      setTotalCount(data.entries.length);
+      setCurrentPage(1);
+      // Set first page entries
+      setEntries(data.entries.slice(0, itemsPerPage));
     } catch (error) {
       console.error('Error loading entries:', error);
       alert('Error al cargar las entradas');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setEntries(allEntries.slice(startIndex, endIndex));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -125,7 +141,7 @@ export default function EntriesPage() {
           <>
             {/* Mobile Card View */}
             <div className="md:hidden space-y-4">
-              {(displayEntries || []).slice(0, 20).map((entry) => (
+              {(displayEntries || []).map((entry) => (
                 <div key={entry.id} className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -161,13 +177,6 @@ export default function EntriesPage() {
                   </div>
                 </div>
               ))}
-              {(displayEntries || []).length > 20 && (
-                <div className="text-center py-4 text-gray-600 text-sm">
-                  Mostrando 20 de {(displayEntries || []).length} entradas. 
-                  <br />
-                  Usa la búsqueda o consulta desde escritorio para ver más.
-                </div>
-              )}
             </div>
 
             {/* Desktop Table View */}
@@ -219,6 +228,60 @@ export default function EntriesPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {!searchQuery && totalCount > itemsPerPage && (
+              <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <p className="text-sm text-gray-600">
+                  Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} de {totalCount} entradas
+                </p>
+                
+                <div className="flex gap-2 flex-wrap justify-center">
+                  <Button
+                    variant="secondary"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 text-sm"
+                  >
+                    ← Anterior
+                  </Button>
+                  
+                  {Array.from({ length: Math.ceil(totalCount / itemsPerPage) }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first page, last page, current page, and pages around current
+                      const totalPages = Math.ceil(totalCount / itemsPerPage);
+                      return (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      );
+                    })
+                    .map((page, index, array) => (
+                      <React.Fragment key={page}>
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="px-2 py-2 text-gray-500">...</span>
+                        )}
+                        <Button
+                          variant={page === currentPage ? 'primary' : 'secondary'}
+                          onClick={() => handlePageChange(page)}
+                          className="px-3 py-2 text-sm min-w-[40px]"
+                        >
+                          {page}
+                        </Button>
+                      </React.Fragment>
+                    ))}
+                  
+                  <Button
+                    variant="secondary"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === Math.ceil(totalCount / itemsPerPage)}
+                    className="px-3 py-2 text-sm"
+                  >
+                    Siguiente →
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
