@@ -7,6 +7,7 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import type { Entry, EntryCreate } from '@/lib/validation';
+import { getCachedLocalidades, getCachedSecciones } from '@/lib/indexeddb';
 
 interface EntryFormProps {
   initialData?: Partial<Entry>;
@@ -17,11 +18,31 @@ interface EntryFormProps {
 interface EntryFormPropsExtended extends EntryFormProps {
   onIneFrontUpload?: (url: string, s3Key: string) => void;
   onIneBackUpload?: (url: string, s3Key: string) => void;
+  onSelfieBlob?: (blob: Blob) => void;
+  onIneFrontBlob?: (blob: Blob) => void;
+  onIneBackBlob?: (blob: Blob) => void;
   ineBackUrl?: string;
   ineFrontUrl?: string;
+  isOnline?: boolean;
+  useSelfieProcessing?: boolean;
+  onSelfieProcessingChange?: (value: boolean) => void;
 }
 
-export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIneFrontUpload, onIneBackUpload, ineBackUrl: initialIneBackUrl, ineFrontUrl: initialIneFrontUrl }: EntryFormPropsExtended) {
+export function EntryForm({ 
+  initialData, 
+  onSubmit, 
+  submitLabel = 'Guardar', 
+  onIneFrontUpload, 
+  onIneBackUpload, 
+  onSelfieBlob,
+  onIneFrontBlob,
+  onIneBackBlob,
+  ineBackUrl: initialIneBackUrl, 
+  ineFrontUrl: initialIneFrontUrl,
+  isOnline = true,
+  useSelfieProcessing = false,
+  onSelfieProcessingChange,
+}: EntryFormPropsExtended) {
   const [formData, setFormData] = useState<Partial<EntryCreate>>({
     folio: initialData?.folio || '',
     nombre: initialData?.nombre || '',
@@ -98,14 +119,35 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
 
   // Load options
   useEffect(() => {
-    Promise.all([
-      fetch('/api/options/localidades').then((r) => r.json()),
-      fetch('/api/options/secciones').then((r) => r.json()),
-    ]).then(([loc, sec]) => {
-      setLocalidades(loc.localidades || loc);
-      setSecciones(sec.secciones || sec);
-    });
-  }, []);
+    const loadOptions = async () => {
+      if (isOnline) {
+        // Load from API when online
+        try {
+          const [loc, sec] = await Promise.all([
+            fetch('/api/options/localidades').then((r) => r.json()),
+            fetch('/api/options/secciones').then((r) => r.json()),
+          ]);
+          setLocalidades(loc.localidades || loc);
+          setSecciones(sec.secciones || sec);
+        } catch (error) {
+          console.warn('Failed to load options from API, loading from cache:', error);
+          // Fallback to cache if API fails
+          const cachedLoc = await getCachedLocalidades();
+          const cachedSec = await getCachedSecciones();
+          if (cachedLoc) setLocalidades(cachedLoc);
+          if (cachedSec) setSecciones(cachedSec);
+        }
+      } else {
+        // Load from cache when offline
+        const cachedLoc = await getCachedLocalidades();
+        const cachedSec = await getCachedSecciones();
+        if (cachedLoc) setLocalidades(cachedLoc);
+        if (cachedSec) setSecciones(cachedSec);
+      }
+    };
+    
+    loadOptions();
+  }, [isOnline]);
 
   // Check for duplicate names
   useEffect(() => {
@@ -202,26 +244,43 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
 
     setIsUploadingSelfie(true);
     try {
-      const formData = new FormData();
-      formData.append('selfie', file);
+      if (!isOnline) {
+        // OFFLINE MODE: Store as blob and create local preview URL
+        const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+        const localUrl = URL.createObjectURL(blob);
+        
+        setFormData((prev) => ({
+          ...prev,
+          selfieUrl: localUrl,
+          selfieS3Key: '', // Will be set on sync
+        }));
+        
+        // Notify parent to store blob
+        if (onSelfieBlob) {
+          onSelfieBlob(blob);
+        }
+      } else {
+        // ONLINE MODE: Upload to S3
+        const formDataUpload = new FormData();
+        formDataUpload.append('selfie', file);
+        formDataUpload.append('processBackground', useSelfieProcessing.toString());
 
-      const response = await fetch('/api/selfie/upload', {
-        method: 'POST',
-        body: formData,
-      });
+        const response = await fetch('/api/selfie/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
 
-      if (!response.ok) {
-        throw new Error('Error al procesar la selfie');
+        if (!response.ok) {
+          throw new Error('Error al procesar la selfie');
+        }
+
+        const data = await response.json();
+        setFormData((prev) => ({
+          ...prev,
+          selfieUrl: data.url,
+          selfieS3Key: data.s3Key,
+        }));
       }
-
-      const data = await response.json();
-      console.log('Received from API:', data);
-      console.log('Setting selfieUrl to:', data.url);
-      setFormData((prev) => ({
-        ...prev,
-        selfieUrl: data.url,
-        selfieS3Key: data.s3Key,
-      }));
     } catch (error: any) {
       alert(error.message || 'Error al subir la selfie');
     } finally {
@@ -235,36 +294,58 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
 
     setIsUploadingIneFront(true);
     try {
-      const formDataUpload = new FormData();
-      formDataUpload.append('ine', file);
-      formDataUpload.append('side', 'front');
+      if (!isOnline) {
+        // OFFLINE MODE: Store as blob and create local preview URL
+        const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+        const localUrl = URL.createObjectURL(blob);
+        
+        setFormData((prev) => ({
+          ...prev,
+          ineFrontUrl: localUrl,
+          ineFrontS3Key: '',
+        }));
+        setIneFrontDeleted(false);
+        
+        // Notify parent to store blob
+        if (onIneFrontBlob) {
+          onIneFrontBlob(blob);
+        }
+        
+        // Notify parent if callback provided
+        if (onIneFrontUpload) {
+          onIneFrontUpload(localUrl, '');
+        }
+      } else {
+        // ONLINE MODE: Upload to S3
+        const formDataUpload = new FormData();
+        formDataUpload.append('ine', file);
+        formDataUpload.append('side', 'front');
 
-      const response = await fetch('/api/ine/upload', {
-        method: 'POST',
-        body: formDataUpload,
-      });
+        const response = await fetch('/api/ine/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Server error uploading INE frontal:', errorData);
-        throw new Error(errorData.error || 'Error al procesar INE frontal');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al procesar INE frontal');
+        }
+
+        const data = await response.json();
+        setFormData((prev) => ({
+          ...prev,
+          ineFrontUrl: data.url,
+          ineFrontS3Key: data.s3Key,
+        }));
+        setIneFrontDeleted(false);
+        
+        // Notify parent if callback provided
+        if (onIneFrontUpload) {
+          onIneFrontUpload(data.url, data.s3Key);
+        }
       }
-
-      const data = await response.json();
-      console.log('INE frontal uploaded:', data);
-      setFormData((prev) => ({
-        ...prev,
-        ineFrontUrl: data.url,
-        ineFrontS3Key: data.s3Key,
-      }));
-      setIneFrontDeleted(false); // Reset deletion state
       
-      // Notify parent if callback provided
-      if (onIneFrontUpload) {
-        onIneFrontUpload(data.url, data.s3Key);
-      }
-      
-      // Reset file input so the same file can be selected again
+      // Reset file input
       e.target.value = '';
     } catch (error: any) {
       console.error('Error uploading INE frontal:', error);
@@ -281,36 +362,58 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
 
     setIsUploadingIneBack(true);
     try {
-      const formDataUpload = new FormData();
-      formDataUpload.append('ine', file);
-      formDataUpload.append('side', 'back');
+      if (!isOnline) {
+        // OFFLINE MODE: Store as blob and create local preview URL
+        const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+        const localUrl = URL.createObjectURL(blob);
+        
+        setFormData((prev) => ({
+          ...prev,
+          ineBackUrl: localUrl,
+          ineBackS3Key: '',
+        }));
+        setIneBackDeleted(false);
+        
+        // Notify parent to store blob
+        if (onIneBackBlob) {
+          onIneBackBlob(blob);
+        }
+        
+        // Notify parent if callback provided
+        if (onIneBackUpload) {
+          onIneBackUpload(localUrl, '');
+        }
+      } else {
+        // ONLINE MODE: Upload to S3
+        const formDataUpload = new FormData();
+        formDataUpload.append('ine', file);
+        formDataUpload.append('side', 'back');
 
-      const response = await fetch('/api/ine/upload', {
-        method: 'POST',
-        body: formDataUpload,
-      });
+        const response = await fetch('/api/ine/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Server error uploading INE trasera:', errorData);
-        throw new Error(errorData.error || 'Error al procesar INE trasera');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al procesar INE trasera');
+        }
+
+        const data = await response.json();
+        setFormData((prev) => ({
+          ...prev,
+          ineBackUrl: data.url,
+          ineBackS3Key: data.s3Key,
+        }));
+        setIneBackDeleted(false);
+        
+        // Notify parent if callback provided
+        if (onIneBackUpload) {
+          onIneBackUpload(data.url, data.s3Key);
+        }
       }
-
-      const data = await response.json();
-      console.log('INE trasera uploaded:', data);
-      setFormData((prev) => ({
-        ...prev,
-        ineBackUrl: data.url,
-        ineBackS3Key: data.s3Key,
-      }));
-      setIneBackDeleted(false); // Reset deletion state
       
-      // Notify parent if callback provided
-      if (onIneBackUpload) {
-        onIneBackUpload(data.url, data.s3Key);
-      }
-      
-      // Reset file input so the same file can be selected again
+      // Reset file input
       e.target.value = '';
     } catch (error: any) {
       console.error('Error uploading INE trasera:', error);
@@ -349,10 +452,12 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
         <Input
           label="Folio"
           name="folio"
-          value={formData.folio}
+          value={formData.folio || ''}
           onChange={handleChange}
           error={errors.folio}
-          required
+          required={isOnline}
+          disabled={!isOnline}
+          placeholder={!isOnline ? 'Se asignará al sincronizar' : ''}
           className="uppercase"
         />
 
@@ -617,6 +722,43 @@ export function EntryForm({ initialData, onSubmit, submitLabel = 'Guardar', onIn
       {/* Selfie Upload Section */}
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Foto (Selfie)</h3>
+        
+        {/* Selfie Processing Toggle - Only show when online */}
+        {isOnline && onSelfieProcessingChange && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <label htmlFor="selfie-processing-toggle" className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      id="selfie-processing-toggle"
+                      className="sr-only"
+                      checked={useSelfieProcessing}
+                      onChange={(e) => onSelfieProcessingChange(e.target.checked)}
+                    />
+                    <div className={`block w-14 h-8 rounded-full transition-colors ${
+                      useSelfieProcessing ? 'bg-orange-500' : 'bg-gray-300'
+                    }`}></div>
+                    <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
+                      useSelfieProcessing ? 'transform translate-x-6' : ''
+                    }`}></div>
+                  </div>
+                  <div className="ml-4">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {useSelfieProcessing ? '🤖 Procesamiento de fondo activado' : '✍️ Llenado manual'}
+                    </span>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {useSelfieProcessing 
+                        ? 'La IA removerá el fondo de la foto automáticamente (requiere internet)' 
+                        : 'La foto se subirá tal cual, sin procesamiento de fondo'}
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
         
         {formData.selfieUrl && (
           <div className="mb-4">

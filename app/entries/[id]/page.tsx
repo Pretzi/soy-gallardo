@@ -2,27 +2,58 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import type { Entry } from '@/lib/validation';
+import { useOffline } from '@/contexts/OfflineContext';
+import { getEntryLocal, saveEntryLocal, deleteEntryLocal, addToQueue, deletePhotosLocal } from '@/lib/indexeddb';
 
 export default function EntryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
+  const { isOnline, refreshStats } = useOffline();
   const [entry, setEntry] = useState<Entry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadEntry();
-  }, [id]);
+  }, [id, isOnline]);
 
   const loadEntry = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/entries/${id}`);
-      if (!response.ok) {
-        throw new Error('Entrada no encontrada');
+      
+      if (isOnline) {
+        // Try to fetch from server
+        try {
+          const response = await fetch(`/api/entries/${id}`);
+          if (!response.ok) {
+            throw new Error('Entrada no encontrada');
+          }
+          const data = await response.json();
+          setEntry(data);
+          
+          // Save to IndexedDB
+          await saveEntryLocal({ ...data, syncStatus: 'synced' });
+        } catch (fetchError) {
+          console.warn('Failed to fetch from server, loading from cache:', fetchError);
+          const localEntry = await getEntryLocal(id);
+          if (localEntry) {
+            setEntry(localEntry);
+          } else {
+            throw fetchError;
+          }
+        }
+      } else {
+        // Load from IndexedDB
+        const localEntry = await getEntryLocal(id);
+        if (localEntry) {
+          setEntry(localEntry);
+        } else {
+          throw new Error('Entrada no encontrada en modo offline');
+        }
       }
-      const data = await response.json();
-      setEntry(data);
     } catch (error: any) {
       alert(error.message || 'Error al cargar la entrada');
     } finally {
@@ -32,6 +63,53 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleDownloadPDF = () => {
     window.open(`/api/entries/${id}/pdf`, '_blank');
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta entrada? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      if (!isOnline) {
+        // OFFLINE MODE: Queue for deletion
+        await addToQueue({
+          type: 'DELETE',
+          data: { id } as any,
+        });
+
+        // Delete locally
+        await deleteEntryLocal(id);
+        await deletePhotosLocal(id);
+
+        // Refresh stats
+        await refreshStats();
+
+        alert('Entrada marcada para eliminación. Se eliminará del servidor cuando haya conexión.');
+        router.push('/entries');
+      } else {
+        // ONLINE MODE: Delete from server
+        const response = await fetch(`/api/entries/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Error al eliminar la entrada');
+        }
+
+        // Delete locally
+        await deleteEntryLocal(id);
+        await deletePhotosLocal(id);
+
+        router.push('/entries');
+      }
+    } catch (error: any) {
+      alert(error.message || 'Error al eliminar la entrada');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading) {
@@ -79,11 +157,35 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
               Vista Previa PDF
             </Button>
             <Button onClick={handleDownloadPDF}>Descargar PDF</Button>
+            <Button 
+              onClick={handleDelete} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+            </Button>
             <Link href="/entries">
               <Button variant="secondary">Volver</Button>
             </Link>
           </div>
         </div>
+
+        {/* Sync Status Banners */}
+        {(entry as any).syncStatus === 'pending' && (
+          <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+            <p className="text-sm font-medium text-yellow-800">
+              🟡 Esta entrada tiene cambios pendientes de sincronización
+            </p>
+          </div>
+        )}
+        
+        {!isOnline && (
+          <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-lg">
+            <p className="text-sm font-medium text-blue-800">
+              📱 Modo Offline - Viendo datos guardados localmente
+            </p>
+          </div>
+        )}
 
         {/* Mobile action buttons */}
         <div className="flex flex-col gap-3 mb-6 md:hidden">
@@ -101,6 +203,13 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
               Editar Entrada
             </Button>
           </Link>
+          <Button 
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="w-full text-base py-3 bg-red-600 hover:bg-red-700 text-white"
+          >
+            {isDeleting ? 'Eliminando...' : 'Eliminar Entrada'}
+          </Button>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">

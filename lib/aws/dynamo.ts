@@ -4,6 +4,7 @@ import {
   PutCommand,
   GetCommand,
   UpdateCommand,
+  DeleteCommand,
   QueryCommand,
   ScanCommand,
   BatchWriteCommand,
@@ -45,11 +46,12 @@ function generateId(): string {
 // Get the latest folio number
 export async function getLatestFolio(): Promise<string> {
   try {
-    // Use GSI1 to query all entries by folio
+    // Query using GSI1 to get entries sorted by folio (descending)
+    // This is more efficient than scanning all entries
     const result = await docClient.send(
       new ScanCommand({
         TableName: TABLE_NAME,
-        FilterExpression: 'begins_with(PK, :prefix)',
+        FilterExpression: 'begins_with(PK, :prefix) AND attribute_exists(folio)',
         ExpressionAttributeValues: {
           ':prefix': 'ENTRY#',
         },
@@ -70,9 +72,8 @@ export async function getLatestFolio(): Promise<string> {
       return '000001';
     }
 
-    // Convert to numbers for sorting
+    // Convert to numbers for sorting and get max
     const numericFolios = folios.map(folio => parseInt(folio, 10));
-
     const maxFolio = Math.max(...numericFolios);
     const nextFolio = maxFolio + 1;
 
@@ -203,6 +204,26 @@ export async function updateEntry(id: string, data: EntryUpdate): Promise<Entry 
   );
 
   return updatedEntry;
+}
+
+// Delete entry
+export async function deleteEntry(id: string): Promise<boolean> {
+  const existing = await getEntry(id);
+  if (!existing) {
+    return false;
+  }
+
+  await docClient.send(
+    new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `ENTRY#${id}`,
+        SK: `METADATA`,
+      },
+    })
+  );
+
+  return true;
 }
 
 // List entries with pagination

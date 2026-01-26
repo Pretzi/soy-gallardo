@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEntry, updateEntry } from '@/lib/aws/dynamo';
+import { getEntry, updateEntry, deleteEntry } from '@/lib/aws/dynamo';
 import { entryUpdateSchema } from '@/lib/validation';
 
 export async function GET(
@@ -34,7 +34,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    
+
     // Validate request body
     const validatedData = entryUpdateSchema.parse(body);
 
@@ -51,7 +51,7 @@ export async function PUT(
     return NextResponse.json(entry);
   } catch (error: any) {
     console.error('Error in PUT /api/entries/[id]:', error);
-    
+
     if (error.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Datos de entrada inválidos', details: error.errors },
@@ -61,6 +61,26 @@ export async function PUT(
 
     return NextResponse.json(
       { error: error.message || 'Error al actualizar la entrada' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    
+    // Delete entry
+    await deleteEntry(id);
+
+    return NextResponse.json({ success: true, message: 'Entrada eliminada correctamente' });
+  } catch (error: any) {
+    console.error('Error in DELETE /api/entries/[id]:', error);
+    return NextResponse.json(
+      { error: error.message || 'Error al eliminar la entrada' },
       { status: 500 }
     );
   }

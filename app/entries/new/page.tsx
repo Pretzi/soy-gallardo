@@ -6,9 +6,12 @@ import Confetti from 'react-confetti';
 import { Button } from '@/components/ui/Button';
 import { EntryForm } from '@/components/forms/EntryForm';
 import type { EntryCreate, INEParseResponse } from '@/lib/validation';
+import { useOffline } from '@/contexts/OfflineContext';
+import { generateTempId, saveEntryLocal, addToQueue, savePhotosLocal, cacheLocalidades, cacheSecciones } from '@/lib/indexeddb';
 
 export default function NewEntryPage() {
   const router = useRouter();
+  const { isOnline, refreshStats } = useOffline();
   const [step, setStep] = useState(1);
   const [ineData, setIneData] = useState<Partial<EntryCreate>>({});
   const [ineFrontUrl, setIneFrontUrl] = useState('');
@@ -19,13 +22,44 @@ export default function NewEntryPage() {
   const [nextFolio, setNextFolio] = useState<string>('');
   const [isLoadingFolio, setIsLoadingFolio] = useState(false);
   const [createdEntryId, setCreatedEntryId] = useState<string>('');
+  const [useSelfieProcessing, setUseSelfieProcessing] = useState(false); // Default OFF - for selfie background removal
+  
+  // Store photos as blobs for offline use
+  const [selfieBlob, setSelfieBlob] = useState<Blob | null>(null);
+  const [ineFrontBlob, setIneFrontBlob] = useState<Blob | null>(null);
+  const [ineBackBlob, setIneBackBlob] = useState<Blob | null>(null);
 
-  // Fetch next folio when component mounts or when step changes to 2
+  // Fetch next folio when component mounts or when step changes to 2 (only in online mode)
   useEffect(() => {
-    if (step === 2 && !nextFolio) {
+    if (step === 2 && !nextFolio && isOnline) {
       fetchNextFolio();
     }
-  }, [step]);
+  }, [step, isOnline]);
+
+  // Cache dropdown options when online
+  useEffect(() => {
+    const cacheDropdownOptions = async () => {
+      if (isOnline) {
+        try {
+          const [localidadesRes, seccionesRes] = await Promise.all([
+            fetch('/api/options/localidades'),
+            fetch('/api/options/secciones')
+          ]);
+          
+          if (localidadesRes.ok && seccionesRes.ok) {
+            const localidades = await localidadesRes.json();
+            const secciones = await seccionesRes.json();
+            await cacheLocalidades(localidades.localidades || localidades);
+            await cacheSecciones(secciones.secciones || secciones);
+          }
+        } catch (error) {
+          console.warn('Failed to cache dropdown options:', error);
+        }
+      }
+    };
+    
+    cacheDropdownOptions();
+  }, [isOnline]);
 
   const fetchNextFolio = async () => {
     setIsLoadingFolio(true);
@@ -70,25 +104,13 @@ export default function NewEntryPage() {
       setIneFrontUrl(uploadData.url);
       setIneFrontS3Key(uploadData.s3Key);
 
-      // Then parse the INE data with OpenAI
-      const parseFormData = new FormData();
-      parseFormData.append('ine', file);
-
-      const parseResponse = await fetch('/api/ine/parse', {
-        method: 'POST',
-        body: parseFormData,
-      });
-
-      if (!parseResponse.ok) {
-        throw new Error('Error al procesar INE');
-      }
-
-      const parseData: INEParseResponse = await parseResponse.json();
-      setIneData({
-        ...parseData as Partial<EntryCreate>,
+      // Just store the uploaded INE URLs, no AI parsing
+      const parsedData: Partial<EntryCreate> = {
         ineFrontUrl: uploadData.url,
         ineFrontS3Key: uploadData.s3Key,
-      });
+      };
+
+      setIneData(parsedData);
       setStep(2);
     } catch (error: any) {
       alert(error.message || 'Error al procesar la imagen INE');
@@ -98,6 +120,53 @@ export default function NewEntryPage() {
   };
 
   const handleFormSubmit = async (data: EntryCreate) => {
+    if (!isOnline) {
+      // OFFLINE MODE: Save locally and queue for sync
+      const tempId = generateTempId();
+      
+      const entryData: any = {
+        ...data,
+        id: tempId,
+        folio: '', // Will be assigned on sync
+        syncStatus: 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ineFrontUrl: '',
+        ineFrontS3Key: '',
+        ineBackUrl: '',
+        ineBackS3Key: '',
+        selfieUrl: '',
+        selfieS3Key: '',
+      };
+      
+      // Save entry to IndexedDB
+      await saveEntryLocal(entryData);
+      
+      // Save photos as blobs
+      if (selfieBlob || ineFrontBlob || ineBackBlob) {
+        await savePhotosLocal(tempId, {
+          selfie: selfieBlob || undefined,
+          ineFront: ineFrontBlob || undefined,
+          ineBack: ineBackBlob || undefined,
+        });
+      }
+      
+      // Add to sync queue
+      await addToQueue({
+        type: 'CREATE',
+        data,
+        tempId,
+      });
+      
+      // Refresh stats
+      await refreshStats();
+      
+      setCreatedEntryId(tempId);
+      setStep(3);
+      return;
+    }
+    
+    // ONLINE MODE: Create on server
     const entryData = {
       ...data,
       ineFrontUrl,
@@ -122,6 +191,10 @@ export default function NewEntryPage() {
     }
 
     const entry = await response.json();
+    
+    // Save to IndexedDB as synced
+    await saveEntryLocal({ ...entry, syncStatus: 'synced' });
+    
     setCreatedEntryId(entry.id);
     setStep(3); // Go to Finalizado step with confetti
   };
@@ -129,6 +202,11 @@ export default function NewEntryPage() {
   const handleIneFrontReplace = (url: string, s3Key: string) => {
     setIneFrontUrl(url);
     setIneFrontS3Key(s3Key);
+  };
+  
+  const handleIneBackReplace = (url: string, s3Key: string) => {
+    setIneBackUrl(url);
+    setIneBackS3Key(s3Key);
   };
 
   return (
@@ -181,38 +259,60 @@ export default function NewEntryPage() {
           </div>
         </div>
 
-        {/* Step 1: Upload INE */}
+        {/* Step 1: Upload INE (only available online) */}
         {step === 1 && (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl md:text-2xl font-bold mb-4 text-gray-900">Paso 1: Subir Imagen de INE</h2>
-            <p className="text-base text-gray-800 mb-6">
-              Sube una foto o escaneo de la credencial INE para extraer automáticamente los datos.
-            </p>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleINEUpload}
-                className="hidden"
-                id="ine-upload"
-                disabled={isUploadingINE}
-              />
-              <div className="text-base md:text-lg text-gray-800 mb-4 font-medium">
-                {isUploadingINE ? 'Procesando...' : 'Click para subir imagen INE'}
+            
+            {!isOnline ? (
+              // Offline mode - INE scan disabled
+              <div className="mb-6">
+                <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg mb-4">
+                  <p className="text-sm font-medium text-yellow-800">
+                    📵 El escaneo de INE requiere conexión a internet para subir las imágenes al servidor.
+                  </p>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Puedes continuar al siguiente paso y llenar el formulario manualmente. Las fotos se guardarán localmente.
+                  </p>
+                </div>
+                <Button variant="secondary" onClick={() => setStep(2)}>
+                  Continuar sin escanear INE
+                </Button>
               </div>
-              <Button 
-                type="button" 
-                disabled={isUploadingINE}
-                onClick={() => document.getElementById('ine-upload')?.click()}
-              >
-                {isUploadingINE ? 'Procesando...' : 'Seleccionar Imagen'}
-              </Button>
-            </div>
-            <div className="mt-4">
-              <Button variant="secondary" onClick={() => setStep(2)}>
-                Omitir y llenar manualmente
-              </Button>
-            </div>
+            ) : (
+              // Online mode - INE scan available
+              <>
+                <p className="text-base text-gray-800 mb-4">
+                  Sube una foto o escaneo de la credencial INE. Deberás llenar el formulario manualmente.
+                </p>
+
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleINEUpload}
+                    className="hidden"
+                    id="ine-upload"
+                    disabled={isUploadingINE}
+                  />
+                  <div className="text-base md:text-lg text-gray-800 mb-4 font-medium">
+                    {isUploadingINE ? 'Subiendo imagen...' : 'Click para subir imagen INE'}
+                  </div>
+                  <Button 
+                    type="button" 
+                    disabled={isUploadingINE}
+                    onClick={() => document.getElementById('ine-upload')?.click()}
+                  >
+                    {isUploadingINE ? 'Subiendo...' : 'Seleccionar Imagen'}
+                  </Button>
+                </div>
+                <div className="mt-4">
+                  <Button variant="secondary" onClick={() => setStep(2)}>
+                    Omitir y llenar manualmente
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -221,23 +321,40 @@ export default function NewEntryPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-900">Paso 2: Completar Información</h2>
             
-            {isLoadingFolio && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800 font-medium">⏳ Obteniendo siguiente folio...</p>
-              </div>
+            {/* Online mode - show folio */}
+            {isOnline && (
+              <>
+                {isLoadingFolio && (
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-blue-800 font-medium">⏳ Obteniendo siguiente folio...</p>
+                  </div>
+                )}
+                
+                {nextFolio && !isLoadingFolio && (
+                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-green-800">
+                      <span className="font-semibold">Folio asignado:</span> {nextFolio}
+                    </p>
+                    <button
+                      onClick={fetchNextFolio}
+                      className="mt-2 text-sm text-green-700 hover:text-green-900 underline"
+                    >
+                      Actualizar folio
+                    </button>
+                  </div>
+                )}
+              </>
             )}
             
-            {nextFolio && !isLoadingFolio && (
-              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800">
-                  <span className="font-semibold">Folio asignado:</span> {nextFolio}
+            {/* Offline mode - show info message */}
+            {!isOnline && (
+              <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+                <p className="text-sm font-medium text-yellow-800">
+                  📵 Modo sin conexión
                 </p>
-                <button
-                  onClick={fetchNextFolio}
-                  className="mt-2 text-sm text-green-700 hover:text-green-900 underline"
-                >
-                  Actualizar folio
-                </button>
+                <p className="text-sm text-yellow-700 mt-1">
+                  El folio se asignará automáticamente cuando la entrada se sincronice con el servidor.
+                </p>
               </div>
             )}
             
@@ -246,6 +363,13 @@ export default function NewEntryPage() {
               ineFrontUrl={ineFrontUrl}
               ineBackUrl={ineBackUrl}
               onIneFrontUpload={handleIneFrontReplace}
+              onIneBackUpload={handleIneBackReplace}
+              onSelfieBlob={setSelfieBlob}
+              onIneFrontBlob={setIneFrontBlob}
+              onIneBackBlob={setIneBackBlob}
+              isOnline={isOnline}
+              useSelfieProcessing={useSelfieProcessing}
+              onSelfieProcessingChange={setUseSelfieProcessing}
               onSubmit={handleFormSubmit}
               submitLabel="Finalizar"
             />

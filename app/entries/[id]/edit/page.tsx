@@ -6,26 +6,93 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { EntryForm } from '@/components/forms/EntryForm';
 import type { Entry, EntryCreate } from '@/lib/validation';
+import { useOffline } from '@/contexts/OfflineContext';
+import { getEntryLocal, saveEntryLocal, addToQueue, savePhotosLocal, getPhotosLocal, cacheLocalidades, cacheSecciones } from '@/lib/indexeddb';
 
 export default function EditEntryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { isOnline, refreshStats } = useOffline();
   const [entry, setEntry] = useState<Entry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [useSelfieProcessing, setUseSelfieProcessing] = useState(false);
+  
+  // Store photos as blobs for offline use
+  const [selfieBlob, setSelfieBlob] = useState<Blob | null>(null);
+  const [ineFrontBlob, setIneFrontBlob] = useState<Blob | null>(null);
+  const [ineBackBlob, setIneBackBlob] = useState<Blob | null>(null);
 
   useEffect(() => {
     loadEntry();
-  }, [id]);
+  }, [id, isOnline]);
+
+  // Cache dropdown options when online
+  useEffect(() => {
+    const cacheDropdownOptions = async () => {
+      if (isOnline) {
+        try {
+          const [localidadesRes, seccionesRes] = await Promise.all([
+            fetch('/api/options/localidades'),
+            fetch('/api/options/secciones')
+          ]);
+          
+          if (localidadesRes.ok && seccionesRes.ok) {
+            const localidades = await localidadesRes.json();
+            const secciones = await seccionesRes.json();
+            await cacheLocalidades(localidades.localidades || localidades);
+            await cacheSecciones(secciones.secciones || secciones);
+          }
+        } catch (error) {
+          console.warn('Failed to cache dropdown options:', error);
+        }
+      }
+    };
+    
+    cacheDropdownOptions();
+  }, [isOnline]);
 
   const loadEntry = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/entries/${id}`);
-      if (!response.ok) {
-        throw new Error('Entrada no encontrada');
+      
+      if (isOnline) {
+        // Try to fetch from server
+        try {
+          const response = await fetch(`/api/entries/${id}`);
+          if (!response.ok) {
+            throw new Error('Entrada no encontrada');
+          }
+          const data = await response.json();
+          setEntry(data);
+          
+          // Save to IndexedDB
+          await saveEntryLocal({ ...data, syncStatus: 'synced' });
+        } catch (fetchError) {
+          console.warn('Failed to fetch from server, loading from cache:', fetchError);
+          const localEntry = await getEntryLocal(id);
+          if (localEntry) {
+            setEntry(localEntry);
+          } else {
+            throw fetchError;
+          }
+        }
+      } else {
+        // Load from IndexedDB
+        const localEntry = await getEntryLocal(id);
+        if (localEntry) {
+          setEntry(localEntry);
+          
+          // Load photos from IndexedDB if they exist as blobs
+          const photos = await getPhotosLocal(id);
+          if (photos) {
+            setSelfieBlob(photos.selfie || null);
+            setIneFrontBlob(photos.ineFront || null);
+            setIneBackBlob(photos.ineBack || null);
+          }
+        } else {
+          throw new Error('Entrada no encontrada en modo offline');
+        }
       }
-      const data = await response.json();
-      setEntry(data);
     } catch (error: any) {
       alert(error.message || 'Error al cargar la entrada');
     } finally {
@@ -34,6 +101,42 @@ export default function EditEntryPage({ params }: { params: Promise<{ id: string
   };
 
   const handleFormSubmit = async (data: EntryCreate) => {
+    if (!isOnline) {
+      // OFFLINE MODE: Save locally and queue for sync
+      const updatedEntry: any = {
+        ...entry,
+        ...data,
+        id,
+        updatedAt: new Date().toISOString(),
+        syncStatus: 'pending',
+      };
+      
+      // Save entry to IndexedDB
+      await saveEntryLocal(updatedEntry);
+      
+      // Save photos as blobs if they changed
+      if (selfieBlob || ineFrontBlob || ineBackBlob) {
+        await savePhotosLocal(id, {
+          selfie: selfieBlob || undefined,
+          ineFront: ineFrontBlob || undefined,
+          ineBack: ineBackBlob || undefined,
+        });
+      }
+      
+      // Add to sync queue
+      await addToQueue({
+        type: 'UPDATE',
+        data: { ...data, id },
+      });
+      
+      // Refresh stats
+      await refreshStats();
+      
+      router.push(`/entries/${id}`);
+      return;
+    }
+    
+    // ONLINE MODE: Update on server
     const response = await fetch(`/api/entries/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -44,6 +147,11 @@ export default function EditEntryPage({ params }: { params: Promise<{ id: string
       const error = await response.json();
       throw error;
     }
+    
+    const updatedEntry = await response.json();
+    
+    // Save to IndexedDB as synced
+    await saveEntryLocal({ ...updatedEntry, syncStatus: 'synced' });
 
     router.push(`/entries/${id}`);
   };
@@ -80,10 +188,24 @@ export default function EditEntryPage({ params }: { params: Promise<{ id: string
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
+          {entry.syncStatus === 'pending' && (
+            <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+              <p className="text-sm font-medium text-yellow-800">
+                🟡 Esta entrada tiene cambios pendientes de sincronización
+              </p>
+            </div>
+          )}
+          
           <EntryForm
             initialData={entry}
             ineFrontUrl={entry.ineFrontUrl}
             ineBackUrl={entry.ineBackUrl}
+            onSelfieBlob={setSelfieBlob}
+            onIneFrontBlob={setIneFrontBlob}
+            onIneBackBlob={setIneBackBlob}
+            isOnline={isOnline}
+            useSelfieProcessing={useSelfieProcessing}
+            onSelfieProcessingChange={setUseSelfieProcessing}
             onSubmit={handleFormSubmit}
             submitLabel="Guardar Cambios"
           />

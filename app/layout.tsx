@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { HeaderNav } from "@/components/HeaderNav";
+import { OfflineProvider } from "@/contexts/OfflineContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +17,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Soy Gallardo - Registro de Entradas",
   description: "Sistema de registro de afiliados Soy Gallardo",
+  manifest: "/manifest.json",
+  themeColor: "#f97316",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Soy Gallardo",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({
@@ -28,6 +41,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
+        <OfflineProvider>
         <header className="bg-white border-b-4 border-orange-500 shadow-md">
           <div className="container mx-auto px-4 py-3 md:py-2">
             <div className="flex items-center justify-between gap-3 md:gap-4">
@@ -51,6 +65,7 @@ export default function RootLayout({
           </div>
         </header>
         {children}
+        </OfflineProvider>
       </body>
     </html>
   );

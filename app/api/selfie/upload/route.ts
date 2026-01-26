@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('selfie') as File;
+    const processBackground = formData.get('processBackground') === 'true';
 
     if (!file) {
       return NextResponse.json(
@@ -31,14 +32,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    let buffer = Buffer.from(await file.arrayBuffer());
 
-    // Process headshot with Gemini - preserves actual face with white background
-    const processedBuffer = await processHeadshotWithGemini(buffer);
+    // Only process headshot with Gemini if requested
+    if (processBackground) {
+      buffer = await processHeadshotWithGemini(buffer);
+    }
 
     // Upload to S3
     const fileName = `selfie-${Date.now()}.jpg`;
-    const { url, key } = await uploadImageToS3(processedBuffer, fileName);
+    const { url, key } = await uploadImageToS3(buffer, fileName);
 
     console.log('Returning to client:', { url, s3Key: key });
 
