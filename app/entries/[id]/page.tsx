@@ -75,6 +75,9 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
             <Link href={`/entries/${id}/edit`}>
               <Button variant="secondary">Editar</Button>
             </Link>
+            <Button onClick={() => window.open(`/api/entries/${id}/pdf?preview=true`, '_blank')}>
+              Vista Previa PDF
+            </Button>
             <Button onClick={handleDownloadPDF}>Descargar PDF</Button>
             <Link href="/entries">
               <Button variant="secondary">Volver</Button>
@@ -84,7 +87,13 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* Mobile action buttons */}
         <div className="flex flex-col gap-3 mb-6 md:hidden">
-          <Button onClick={handleDownloadPDF} className="w-full text-base py-3">
+          <Button 
+            onClick={() => window.open(`/api/entries/${id}/pdf?preview=true`, '_blank')} 
+            className="w-full text-base py-3"
+          >
+            Vista Previa PDF
+          </Button>
+          <Button onClick={handleDownloadPDF} variant="secondary" className="w-full text-base py-3">
             Descargar PDF
           </Button>
           <Link href={`/entries/${id}/edit`} className="w-full">

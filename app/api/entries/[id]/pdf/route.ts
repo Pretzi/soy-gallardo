@@ -35,12 +35,18 @@ export async function GET(
     // Generate PDF
     const pdfBuffer = await generateEntryPDF(entry, selfieBuffer);
 
-    // Return PDF
+    // Check if preview mode
+    const { searchParams } = new URL(request.url);
+    const isPreview = searchParams.get('preview') === 'true';
+
+    // Return PDF with inline display for preview, or attachment for download
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="entry-${entry.folio}.pdf"`,
+        'Content-Disposition': isPreview 
+          ? `inline; filename="preview-${entry.folio}.pdf"`
+          : `attachment; filename="entry-${entry.folio}.pdf"`,
       },
     });
   } catch (error: any) {
