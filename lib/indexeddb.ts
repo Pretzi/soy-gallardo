@@ -26,7 +26,7 @@ export interface QueuedAction {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   timestamp: number;
-  data: EntryCreate;
+  data: EntryCreate & { id?: string }; // id is required for UPDATE and DELETE
   status: 'pending' | 'syncing' | 'synced' | 'failed';
   retryCount: number;
   tempId?: string; // For CREATE actions with temp IDs

@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let buffer = Buffer.from(await file.arrayBuffer());
+    let buffer: Buffer = Buffer.from(await file.arrayBuffer());
 
     // Only process headshot with Gemini if requested
     if (processBackground) {

@@ -9,11 +9,13 @@ import type { Entry, EntryCreate } from '@/lib/validation';
 import { useOffline } from '@/contexts/OfflineContext';
 import { getEntryLocal, saveEntryLocal, addToQueue, savePhotosLocal, getPhotosLocal, cacheLocalidades, cacheSecciones } from '@/lib/indexeddb';
 
+type EntryWithSync = Entry & { syncStatus?: 'synced' | 'pending' | 'failed' };
+
 export default function EditEntryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { isOnline, refreshStats } = useOffline();
-  const [entry, setEntry] = useState<Entry | null>(null);
+  const [entry, setEntry] = useState<EntryWithSync | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [useSelfieProcessing, setUseSelfieProcessing] = useState(false);
   
