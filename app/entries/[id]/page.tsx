@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { OfflineLink } from '@/components/ui/OfflineLink';
 import type { Entry } from '@/lib/validation';
 import { useOffline } from '@/contexts/OfflineContext';
 import { getEntryLocal, saveEntryLocal, deleteEntryLocal, addToQueue, deletePhotosLocal } from '@/lib/indexeddb';
@@ -152,13 +153,23 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
           
           {/* Desktop buttons */}
           <div className="hidden md:flex gap-2">
-            <Link href={`/entries/${id}/edit`}>
+            <OfflineLink href={`/entries/${id}/edit`} offlineMessage="La edición no está disponible sin conexión.">
               <Button variant="secondary">Editar</Button>
-            </Link>
-            <Button onClick={() => window.open(`/api/entries/${id}/pdf?preview=true`, '_blank')}>
+            </OfflineLink>
+            <Button 
+              onClick={() => isOnline ? window.open(`/api/entries/${id}/pdf?preview=true`, '_blank') : alert('PDF no disponible sin conexión.')}
+              disabled={!isOnline}
+              className={!isOnline ? 'opacity-50 cursor-not-allowed' : ''}
+            >
               Vista Previa PDF
             </Button>
-            <Button onClick={handleDownloadPDF}>Descargar PDF</Button>
+            <Button 
+              onClick={() => isOnline ? handleDownloadPDF() : alert('PDF no disponible sin conexión.')}
+              disabled={!isOnline}
+              className={!isOnline ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              Descargar PDF
+            </Button>
             <Button 
               onClick={handleDelete} 
               disabled={isDeleting}
@@ -192,19 +203,25 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
         {/* Mobile action buttons */}
         <div className="flex flex-col gap-3 mb-6 md:hidden">
           <Button 
-            onClick={() => window.open(`/api/entries/${id}/pdf?preview=true`, '_blank')} 
-            className="w-full text-base py-3"
+            onClick={() => isOnline ? window.open(`/api/entries/${id}/pdf?preview=true`, '_blank') : alert('PDF no disponible sin conexión.')} 
+            disabled={!isOnline}
+            className={`w-full text-base py-3 ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            Vista Previa PDF
+            Vista Previa PDF {!isOnline && '(Sin conexión)'}
           </Button>
-          <Button onClick={handleDownloadPDF} variant="secondary" className="w-full text-base py-3">
-            Descargar PDF
+          <Button 
+            onClick={() => isOnline ? handleDownloadPDF() : alert('PDF no disponible sin conexión.')} 
+            variant="secondary" 
+            disabled={!isOnline}
+            className={`w-full text-base py-3 ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Descargar PDF {!isOnline && '(Sin conexión)'}
           </Button>
-          <Link href={`/entries/${id}/edit`} className="w-full">
+          <OfflineLink href={`/entries/${id}/edit`} className="w-full" offlineMessage="La edición no está disponible sin conexión.">
             <Button variant="secondary" className="w-full text-base py-3">
               Editar Entrada
             </Button>
-          </Link>
+          </OfflineLink>
           <Button 
             onClick={handleDelete}
             disabled={isDeleting}

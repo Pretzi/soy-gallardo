@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { OfflineLink } from '@/components/ui/OfflineLink';
 import type { Entry } from '@/lib/validation';
 import { useOffline } from '@/contexts/OfflineContext';
 import { getEntriesLocal, saveEntryLocal, searchEntriesLocal, cacheLocalidades, cacheSecciones } from '@/lib/indexeddb';
@@ -290,14 +291,14 @@ export default function EntriesPage() {
                       </div>
                       <p className="text-lg font-bold text-orange-600">{entry.folio || 'Pendiente'}</p>
                     </div>
-                    <Link href={`/entries/${entry.id}`}>
+                    <OfflineLink href={`/entries/${entry.id}`} offlineMessage="Los detalles de entrada no están disponibles sin conexión.">
                       <button className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                       </button>
-                    </Link>
+                    </OfflineLink>
                   </div>
                   <div className="space-y-2">
                     <div>
@@ -362,11 +363,11 @@ export default function EntriesPage() {
                         {entry.localidad}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        <Link href={`/entries/${entry.id}`}>
+                        <OfflineLink href={`/entries/${entry.id}`} offlineMessage="Los detalles de entrada no están disponibles sin conexión.">
                           <span className="text-orange-600 hover:text-orange-700 font-medium cursor-pointer">
                             Ver detalles →
                           </span>
-                        </Link>
+                        </OfflineLink>
                       </td>
                     </tr>
                   ))}
