@@ -17,7 +17,9 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/swe-worker-') ||
     pathname.startsWith('/fallback-') ||
     pathname === '/offline' ||
-    pathname === '/~offline'
+    pathname === '/~offline' ||
+    pathname.endsWith('.js') ||
+    pathname.endsWith('.json')
   ) {
     return NextResponse.next();
   }
@@ -39,11 +41,10 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder assets (images, etc.)
+     * - _next (Next.js internals)
+     * - Static files (images, fonts, etc.)
+     * - API routes are handled by the middleware logic above
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|js|json)$).*)',
+    '/((?!_next|favicon.ico).*)',
   ],
 };
