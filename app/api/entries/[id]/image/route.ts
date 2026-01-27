@@ -40,7 +40,7 @@ export async function GET(
     const isPreview = searchParams.get('preview') === 'true';
 
     // Return image with inline display for preview, or attachment for download
-    return new NextResponse(imageBuffer, {
+    return new NextResponse(new Uint8Array(imageBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/jpeg',
