@@ -9,6 +9,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow access to PWA files (service worker, manifest, etc.)
+  if (
+    pathname === '/sw.js' ||
+    pathname === '/manifest.json' ||
+    pathname.startsWith('/workbox-') ||
+    pathname.startsWith('/swe-worker-') ||
+    pathname.startsWith('/fallback-') ||
+    pathname === '/offline' ||
+    pathname === '/~offline'
+  ) {
+    return NextResponse.next();
+  }
+
   // Check if user is authenticated
   const authToken = request.cookies.get('auth-token');
 
@@ -29,8 +42,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
+     * - public folder assets (images, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|js|json)$).*)',
   ],
 };
