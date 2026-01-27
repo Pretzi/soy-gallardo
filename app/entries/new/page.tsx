@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Confetti from 'react-confetti';
 import { Button } from '@/components/ui/Button';
 import { EntryForm } from '@/components/forms/EntryForm';
@@ -213,15 +214,15 @@ export default function NewEntryPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => router.push('/entries')}
+          <Link
+            href="/entries"
             className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
             aria-label="Volver"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6 text-gray-900">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
-          </button>
+          </Link>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Nueva Entrada</h1>
         </div>
 
@@ -406,26 +407,21 @@ export default function NewEntryPage() {
               </div>
 
               <div className="flex flex-col md:flex-row gap-4 justify-center">
-                <Button
-                  onClick={() => router.push(`/entries/${createdEntryId}`)}
-                  className="w-full md:w-auto"
-                >
-                  Ver Entrada
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => router.push('/entries/new')}
-                  className="w-full md:w-auto"
-                >
-                  Crear Otra Entrada
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => router.push('/entries')}
-                  className="w-full md:w-auto"
-                >
-                  Volver a la Lista
-                </Button>
+                <Link href={`/entries/${createdEntryId}`} className="w-full md:w-auto">
+                  <Button className="w-full">
+                    Ver Entrada
+                  </Button>
+                </Link>
+                <Link href="/entries/new" className="w-full md:w-auto">
+                  <Button variant="secondary" className="w-full">
+                    Crear Otra Entrada
+                  </Button>
+                </Link>
+                <Link href="/entries" className="w-full md:w-auto">
+                  <Button variant="secondary" className="w-full">
+                    Volver a la Lista
+                  </Button>
+                </Link>
               </div>
             </div>
           </>

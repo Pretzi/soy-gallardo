@@ -87,7 +87,8 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
         await refreshStats();
 
         alert('Entrada marcada para eliminación. Se eliminará del servidor cuando haya conexión.');
-        router.push('/entries');
+        // Use window.location for offline-friendly navigation
+        window.location.href = '/entries';
       } else {
         // ONLINE MODE: Delete from server
         const response = await fetch(`/api/entries/${id}`, {
@@ -103,7 +104,8 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
         await deleteEntryLocal(id);
         await deletePhotosLocal(id);
 
-        router.push('/entries');
+        // Use window.location for offline-friendly navigation
+        window.location.href = '/entries';
       }
     } catch (error: any) {
       alert(error.message || 'Error al eliminar la entrada');

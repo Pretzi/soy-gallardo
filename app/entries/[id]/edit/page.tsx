@@ -134,7 +134,8 @@ export default function EditEntryPage({ params }: { params: Promise<{ id: string
       // Refresh stats
       await refreshStats();
       
-      router.push(`/entries/${id}`);
+      // Use window.location for offline-friendly navigation
+      window.location.href = `/entries/${id}`;
       return;
     }
     
@@ -155,7 +156,8 @@ export default function EditEntryPage({ params }: { params: Promise<{ id: string
     // Save to IndexedDB as synced
     await saveEntryLocal({ ...updatedEntry, syncStatus: 'synced' });
 
-    router.push(`/entries/${id}`);
+    // Use window.location for proper navigation
+    window.location.href = `/entries/${id}`;
   };
 
   if (isLoading) {
