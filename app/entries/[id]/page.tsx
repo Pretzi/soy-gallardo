@@ -175,6 +175,13 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
               Descargar PDF
             </Button>
             <Button 
+              onClick={() => isOnline ? window.open(`/api/entries/${id}/image?preview=true`, '_blank') : alert('Imagen no disponible sin conexión.')}
+              disabled={!isOnline}
+              className={!isOnline ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              Vista Previa Imagen
+            </Button>
+            <Button 
               onClick={() => isOnline ? handleDownloadImage() : alert('Imagen no disponible sin conexión.')}
               disabled={!isOnline}
               className={!isOnline ? 'opacity-50 cursor-not-allowed' : ''}
@@ -227,6 +234,14 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
             className={`w-full text-base py-3 ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Descargar PDF {!isOnline && '(Sin conexión)'}
+          </Button>
+          <Button 
+            onClick={() => isOnline ? window.open(`/api/entries/${id}/image?preview=true`, '_blank') : alert('Imagen no disponible sin conexión.')} 
+            variant="secondary" 
+            disabled={!isOnline}
+            className={`w-full text-base py-3 ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Vista Previa Imagen {!isOnline && '(Sin conexión)'}
           </Button>
           <Button 
             onClick={() => isOnline ? handleDownloadImage() : alert('Imagen no disponible sin conexión.')} 

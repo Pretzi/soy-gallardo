@@ -36,30 +36,44 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
   const headerHeight = 35 * SCALE;
   const photoSize = 100 * SCALE;
 
-  // Orange header background
+  // Orange header background at the TOP
   ctx.fillStyle = '#FF7300'; // Orange #ff7300
-  ctx.fillRect(0, height - headerHeight, width, headerHeight);
+  ctx.fillRect(0, 0, width, headerHeight);
 
-  // Header text: "Soy Gallardo y obtengo beneficios."
+  // Header text: "Soy Gallardo y obtengo beneficios." - LEFT ALIGNED
   // Use registered Arial font
-  const headerY = height - headerHeight + (headerHeight - 20 * SCALE) / 2;
+  const startX = 15 * SCALE; // Left margin
   
+  // Calculate widths of each part
+  ctx.font = `bold ${20 * SCALE}px Arial`;
+  const soyWidth = ctx.measureText('Soy ').width;
+  
+  ctx.font = `bold ${21 * SCALE}px Arial`;
+  const gallardoWidth = ctx.measureText('Gallardo').width;
+  
+  // Vertically center: header center minus half the font size (since textBaseline is 'top')
+  // Use the larger font size (21 * SCALE) as reference for better centering
+  const baseFontSize = 21 * SCALE;
+  const headerY = headerHeight / 2 - baseFontSize / 2; // Properly centered vertically
+  
+  // Draw "Soy " in white - adjust Y position for smaller font
   ctx.fillStyle = '#FFFFFF'; // White
   ctx.font = `bold ${20 * SCALE}px Arial`;
-  ctx.fillText('Soy ', 15 * SCALE, headerY);
-
+  const fontSizeDiff = (21 * SCALE - 20 * SCALE) / 2;
+  ctx.fillText('Soy ', startX, headerY + fontSizeDiff);
+  
+  // Draw "Gallardo" in black - uses base font size, so no adjustment needed
   ctx.fillStyle = '#000000'; // Black
   ctx.font = `bold ${21 * SCALE}px Arial`;
-  const soyWidth = ctx.measureText('Soy ').width;
-  ctx.fillText('Gallardo', 15 * SCALE + soyWidth, headerY - SCALE / 2); // Slightly adjust for larger font
-
+  ctx.fillText('Gallardo', startX + soyWidth, headerY);
+  
+  // Draw " y obtengo beneficios." in white - adjust Y position for smaller font
   ctx.fillStyle = '#FFFFFF'; // White
   ctx.font = `bold ${20 * SCALE}px Arial`;
-  const gallardoWidth = ctx.measureText('Gallardo').width;
-  ctx.fillText(' y obtengo beneficios.', 15 * SCALE + soyWidth + gallardoWidth, headerY);
+  ctx.fillText(' y obtengo beneficios.', startX + soyWidth + gallardoWidth, headerY + fontSizeDiff);
 
-  // Process and embed selfie image
-  let selfieY = height - headerHeight - photoSize - 10 * SCALE;
+  // Process and embed selfie image (below the orange header at top)
+  let selfieY = headerHeight + 10 * SCALE;
   if (selfieBuffer) {
     try {
       // Process image with sharp (same as PDF generation)
@@ -155,35 +169,35 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
     }
     
     const logoX = dotsEndX + 5 * SCALE + (availableWidth - logoWidth) / 2;
-    const logoY = selfieY + photoSize - logoHeight - topGap;
+    const logoY = selfieY + photoSize - logoHeight - topGap + 200; // Move 50 units closer to bottom
     
     ctx.drawImage(logoImage, logoX, logoY, logoWidth, logoHeight);
   } catch (error) {
     console.error('Error embedding logo in image:', error);
   }
 
-  // Main content area
-  let yPosition = height - headerHeight - photoSize - 30 * SCALE;
+  // Main content area (just below the selfie image)
+  let yPosition = selfieY + photoSize + 5 * SCALE;
 
-  // "Número de afiliado:" label
+  // "Número de afiliado:" label - ABOVE the folio value
   ctx.fillStyle = '#000000';
   ctx.font = `bold ${16 * SCALE}px Arial`;
   ctx.fillText('Número de afiliado:', 15 * SCALE, yPosition);
-  yPosition -= 22 * SCALE;
+  yPosition += 14 * SCALE; // Move DOWN for the value (closer spacing)
 
-  // Folio (large, orange)
+  // Folio (large, orange) - BELOW the label
   ctx.fillStyle = '#FF6600'; // Orange
   ctx.font = `bold ${18 * SCALE}px Arial`;
   ctx.fillText(entry.folio || '', 15 * SCALE, yPosition);
-  yPosition -= 25 * SCALE;
+  yPosition += 30 * SCALE; // Extra space before next section (increased gap)
 
-  // "Nombre completo:" label
+  // "Nombre completo:" label - ABOVE the name value
   ctx.fillStyle = '#000000';
   ctx.font = `bold ${16 * SCALE}px Arial`;
   ctx.fillText('Nombre completo:', 15 * SCALE, yPosition);
-  yPosition -= 22 * SCALE;
+  yPosition += 14 * SCALE; // Move DOWN for the value (closer spacing)
 
-  // Full name (large, orange)
+  // Full name (large, orange) - BELOW the label
   const fullName = formatFullName(entry).toUpperCase();
   ctx.fillStyle = '#FF6600'; // Orange
   ctx.font = `bold ${18 * SCALE}px Arial`;
@@ -201,7 +215,7 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
     if (metrics.width > maxWidth && i > 0) {
       ctx.fillText(line, 15 * SCALE, currentY);
       line = words[i] + ' ';
-      currentY -= 22 * SCALE;
+      currentY += 22 * SCALE; // Move DOWN for next line
     } else {
       line = testLine;
     }
