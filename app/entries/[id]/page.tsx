@@ -66,8 +66,62 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
     window.open(`/api/entries/${id}/pdf`, '_blank');
   };
 
-  const handleDownloadImage = () => {
-    window.open(`/api/entries/${id}/image`, '_blank');
+  const handleDownloadImage = async () => {
+    try {
+      // Fetch the image as a blob
+      const response = await fetch(`/api/entries/${id}/image`);
+      if (!response.ok) {
+        throw new Error('Error al descargar la imagen');
+      }
+      
+      const blob = await response.blob();
+      const fileName = `entry-${entry?.folio || id}.jpg`;
+      
+      // Check if Web Share API is available (better for mobile)
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile && navigator.share && navigator.canShare) {
+        try {
+          // Convert blob to File for Web Share API
+          const file = new File([blob], fileName, { type: 'image/jpeg' });
+          
+          // Check if we can share files
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: `Entrada ${entry?.folio || id}`,
+              text: 'Guardar imagen de entrada',
+            });
+            return; // Successfully shared/saved
+          }
+        } catch (shareError: any) {
+          // If share fails or user cancels, fall through to download method
+          console.log('Web Share API not available or cancelled, using fallback');
+        }
+      }
+      
+      // Fallback: Create blob URL and download/open
+      const blobUrl = URL.createObjectURL(blob);
+      
+      if (isMobile) {
+        // On mobile, open image in new tab - users can long-press to save to photos
+        // This is the most reliable way for iOS/Android to save to photo album
+        window.open(blobUrl, '_blank');
+      } else {
+        // On desktop, trigger download
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      // Clean up blob URL after a delay
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (error: any) {
+      alert(error.message || 'Error al descargar la imagen');
+    }
   };
 
   const handleDelete = async () => {
