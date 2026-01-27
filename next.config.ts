@@ -20,7 +20,7 @@ const withPWA = withPWAInit({
   // Cache all pages for offline access
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
-  // Pre-cache important routes
+  // Pre-cache important routes with fallbacks
   fallbacks: {
     document: "/offline",
   },
@@ -36,8 +36,38 @@ const withPWA = withPWAInit({
     // Runtime caching strategies
     runtimeCaching: [
       {
-        // Cache page navigations (HTML)
-        urlPattern: /^https?:\/\/.*\/(?!api\/).*/,
+        // Cache RSC (React Server Components) requests - these have ?_rsc parameter
+        urlPattern: /\/_rsc\=|_rsc=/,
+        handler: "NetworkFirst",
+        options: {
+          cacheName: "rsc-cache",
+          expiration: {
+            maxEntries: 100,
+            maxAgeSeconds: 24 * 60 * 60, // 1 day
+          },
+          networkTimeoutSeconds: 3,
+        },
+      },
+      {
+        // Cache static assets (JS, CSS) - Use StaleWhileRevalidate for reliability
+        urlPattern: /\/_next\/static\/.*/,
+        handler: "StaleWhileRevalidate",
+        options: {
+          cacheName: "static-assets",
+          expiration: {
+            maxEntries: 300,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          },
+        },
+      },
+      {
+        // Cache page navigations (HTML) - but not API routes
+        urlPattern: ({ request, url }) => {
+          // Skip API routes
+          if (url.pathname.startsWith('/api/')) return false;
+          // Match document requests
+          return request.destination === 'document';
+        },
         handler: "NetworkFirst",
         options: {
           cacheName: "pages-cache",
@@ -46,18 +76,6 @@ const withPWA = withPWAInit({
             maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
           },
           networkTimeoutSeconds: 3,
-        },
-      },
-      {
-        // Cache static assets (JS, CSS)
-        urlPattern: /\/_next\/static\/.*/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: "static-assets",
-          expiration: {
-            maxEntries: 200,
-            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-          },
         },
       },
       {
@@ -85,7 +103,7 @@ const withPWA = withPWAInit({
         },
       },
       {
-        // Cache API calls with Network First
+        // Cache API options calls with Network First
         urlPattern: /\/api\/options\/.*/,
         handler: "NetworkFirst",
         options: {
