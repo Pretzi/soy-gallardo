@@ -8,8 +8,28 @@ const openai = new OpenAI({
 
 export async function parseINEImage(imageBuffer: Buffer): Promise<INEParseResponse> {
   try {
-    const base64Image = imageBuffer.toString('base64');
-    const mimeType = 'image/jpeg'; // Assume JPEG, could be detected
+    // Ensure the image is valid JPEG format for OpenAI
+    // OpenAI Vision API supports: png, jpeg, gif, webp
+    let processedBuffer = imageBuffer;
+    
+    // Use sharp to ensure it's a valid JPEG format
+    try {
+      const metadata = await sharp(imageBuffer).metadata();
+      // If it's not JPEG, convert it
+      if (metadata.format !== 'jpeg') {
+        processedBuffer = await sharp(imageBuffer)
+          .jpeg({ quality: 90 })
+          .toBuffer();
+      }
+    } catch (sharpError) {
+      // If sharp fails, try to convert anyway
+      processedBuffer = await sharp(imageBuffer)
+        .jpeg({ quality: 90 })
+        .toBuffer();
+    }
+
+    const base64Image = processedBuffer.toString('base64');
+    const mimeType = 'image/jpeg';
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',

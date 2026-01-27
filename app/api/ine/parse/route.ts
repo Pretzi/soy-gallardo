@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseINEImage } from '@/lib/openai';
+import sharp from 'sharp';
+import convert from 'heic-convert';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,8 +31,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const parsedData = await parseINEImage(buffer);
+    let buffer = Buffer.from(await file.arrayBuffer());
+
+    // Check if the file is HEIC format (iPhone default)
+    const isHEIC = file.name.toLowerCase().endsWith('.heic') || 
+                   file.name.toLowerCase().endsWith('.heif') ||
+                   file.type === 'image/heic' ||
+                   file.type === 'image/heif';
+
+    if (isHEIC) {
+      console.log('Converting HEIC to JPEG for OpenAI parsing...');
+      const outputBuffer = await convert({
+        buffer: buffer,
+        format: 'JPEG',
+        quality: 0.9
+      });
+      buffer = Buffer.from(outputBuffer);
+      console.log(`HEIC converted, new size: ${buffer.length} bytes`);
+    }
+
+    // Convert any image format to JPEG with sharp to ensure compatibility with OpenAI
+    // OpenAI Vision API requires: png, jpeg, gif, or webp
+    const processedBuffer = await sharp(buffer)
+      .rotate() // Auto-rotate based on EXIF orientation
+      .jpeg({ quality: 90 }) // Ensure JPEG format for OpenAI
+      .toBuffer();
+
+    console.log(`Processed image for OpenAI, size: ${processedBuffer.length} bytes`);
+
+    const parsedData = await parseINEImage(processedBuffer);
 
     return NextResponse.json(parsedData);
   } catch (error: any) {
