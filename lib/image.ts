@@ -19,6 +19,10 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
 
+  // Set text rendering properties for better compatibility
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+
   // Convert PDF dimensions to pixels
   const width = IMAGE_WIDTH;
   const height = IMAGE_HEIGHT;
@@ -30,17 +34,22 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
   ctx.fillRect(0, height - headerHeight, width, headerHeight);
 
   // Header text: "Soy Gallardo y obtengo beneficios."
+  // Use simple font names that canvas can handle
+  const headerY = height - headerHeight + (headerHeight - 20 * SCALE) / 2;
+  
   ctx.fillStyle = '#FFFFFF'; // White
-  ctx.font = `bold ${20 * SCALE}px Helvetica`;
-  ctx.fillText('Soy ', 15 * SCALE, height - 23 * SCALE);
+  ctx.font = `bold ${20 * SCALE}px sans-serif`;
+  ctx.fillText('Soy ', 15 * SCALE, headerY);
 
   ctx.fillStyle = '#000000'; // Black
-  ctx.font = `bold ${21 * SCALE}px Helvetica`;
-  ctx.fillText('Gallardo', 55 * SCALE, height - 23 * SCALE);
+  ctx.font = `bold ${21 * SCALE}px sans-serif`;
+  const soyWidth = ctx.measureText('Soy ').width;
+  ctx.fillText('Gallardo', 15 * SCALE + soyWidth, headerY - SCALE / 2); // Slightly adjust for larger font
 
   ctx.fillStyle = '#FFFFFF'; // White
-  ctx.font = `bold ${20 * SCALE}px Helvetica`;
-  ctx.fillText(' y obtengo beneficios.', 140 * SCALE, height - 23 * SCALE);
+  ctx.font = `bold ${20 * SCALE}px sans-serif`;
+  const gallardoWidth = ctx.measureText('Gallardo').width;
+  ctx.fillText(' y obtengo beneficios.', 15 * SCALE + soyWidth + gallardoWidth, headerY);
 
   // Process and embed selfie image
   let selfieY = height - headerHeight - photoSize - 10 * SCALE;
@@ -151,26 +160,26 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
 
   // "Número de afiliado:" label
   ctx.fillStyle = '#000000';
-  ctx.font = `bold ${16 * SCALE}px Helvetica`;
+  ctx.font = `bold ${16 * SCALE}px sans-serif`;
   ctx.fillText('Número de afiliado:', 15 * SCALE, yPosition);
   yPosition -= 22 * SCALE;
 
   // Folio (large, orange)
   ctx.fillStyle = '#FF6600'; // Orange
-  ctx.font = `bold ${18 * SCALE}px Helvetica`;
-  ctx.fillText(entry.folio, 15 * SCALE, yPosition);
+  ctx.font = `bold ${18 * SCALE}px sans-serif`;
+  ctx.fillText(entry.folio || '', 15 * SCALE, yPosition);
   yPosition -= 25 * SCALE;
 
   // "Nombre completo:" label
   ctx.fillStyle = '#000000';
-  ctx.font = `bold ${16 * SCALE}px Helvetica`;
+  ctx.font = `bold ${16 * SCALE}px sans-serif`;
   ctx.fillText('Nombre completo:', 15 * SCALE, yPosition);
   yPosition -= 22 * SCALE;
 
   // Full name (large, orange)
   const fullName = formatFullName(entry).toUpperCase();
   ctx.fillStyle = '#FF6600'; // Orange
-  ctx.font = `bold ${18 * SCALE}px Helvetica`;
+  ctx.font = `bold ${18 * SCALE}px sans-serif`;
   
   // Handle text wrapping if name is too long
   const maxWidth = width - 30 * SCALE;
@@ -192,12 +201,23 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
   }
   ctx.fillText(line, 15 * SCALE, currentY);
 
+  // Test if text was rendered (debugging for production)
+  // If fonts aren't available, canvas might render empty text
+  try {
+    const testMetrics = ctx.measureText('Test');
+    if (testMetrics.width === 0) {
+      console.warn('Warning: Text rendering may not be working - font might not be available');
+    }
+  } catch (error) {
+    console.error('Error testing text rendering:', error);
+  }
+
   // Convert canvas to PNG buffer
   const buffer = canvas.toBuffer('image/png');
   
   // Optionally convert to JPEG for smaller file size
   const jpegBuffer = await sharp(buffer)
-    .jpeg({ quality: 95 })
+    .jpeg({ quality: 100 })
     .toBuffer();
   
   return jpegBuffer;
