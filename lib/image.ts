@@ -5,11 +5,18 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
 
+// Register Arial font for reliable text rendering in production
+try {
+  registerFont(require('@canvas-fonts/arial'), { family: 'Arial' });
+} catch (error) {
+  console.warn('Could not register Arial font, falling back to system fonts:', error);
+}
+
 // PDF dimensions: 400x250 points
-// For high-quality image, use 2x resolution: 800x500 pixels
-const IMAGE_WIDTH = 800;
-const IMAGE_HEIGHT = 500;
-const SCALE = 2; // Scale factor from PDF points to pixels
+// For high-quality image, use 4x resolution: 1600x1000 pixels
+const IMAGE_WIDTH = 1600;
+const IMAGE_HEIGHT = 1000;
+const SCALE = 4; // Scale factor from PDF points to pixels
 
 export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): Promise<Buffer> {
   const canvas = createCanvas(IMAGE_WIDTH, IMAGE_HEIGHT);
@@ -34,20 +41,20 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
   ctx.fillRect(0, height - headerHeight, width, headerHeight);
 
   // Header text: "Soy Gallardo y obtengo beneficios."
-  // Use simple font names that canvas can handle
+  // Use registered Arial font
   const headerY = height - headerHeight + (headerHeight - 20 * SCALE) / 2;
   
   ctx.fillStyle = '#FFFFFF'; // White
-  ctx.font = `bold ${20 * SCALE}px sans-serif`;
+  ctx.font = `bold ${20 * SCALE}px Arial`;
   ctx.fillText('Soy ', 15 * SCALE, headerY);
 
   ctx.fillStyle = '#000000'; // Black
-  ctx.font = `bold ${21 * SCALE}px sans-serif`;
+  ctx.font = `bold ${21 * SCALE}px Arial`;
   const soyWidth = ctx.measureText('Soy ').width;
   ctx.fillText('Gallardo', 15 * SCALE + soyWidth, headerY - SCALE / 2); // Slightly adjust for larger font
 
   ctx.fillStyle = '#FFFFFF'; // White
-  ctx.font = `bold ${20 * SCALE}px sans-serif`;
+  ctx.font = `bold ${20 * SCALE}px Arial`;
   const gallardoWidth = ctx.measureText('Gallardo').width;
   ctx.fillText(' y obtengo beneficios.', 15 * SCALE + soyWidth + gallardoWidth, headerY);
 
@@ -160,26 +167,26 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
 
   // "Número de afiliado:" label
   ctx.fillStyle = '#000000';
-  ctx.font = `bold ${16 * SCALE}px sans-serif`;
+  ctx.font = `bold ${16 * SCALE}px Arial`;
   ctx.fillText('Número de afiliado:', 15 * SCALE, yPosition);
   yPosition -= 22 * SCALE;
 
   // Folio (large, orange)
   ctx.fillStyle = '#FF6600'; // Orange
-  ctx.font = `bold ${18 * SCALE}px sans-serif`;
+  ctx.font = `bold ${18 * SCALE}px Arial`;
   ctx.fillText(entry.folio || '', 15 * SCALE, yPosition);
   yPosition -= 25 * SCALE;
 
   // "Nombre completo:" label
   ctx.fillStyle = '#000000';
-  ctx.font = `bold ${16 * SCALE}px sans-serif`;
+  ctx.font = `bold ${16 * SCALE}px Arial`;
   ctx.fillText('Nombre completo:', 15 * SCALE, yPosition);
   yPosition -= 22 * SCALE;
 
   // Full name (large, orange)
   const fullName = formatFullName(entry).toUpperCase();
   ctx.fillStyle = '#FF6600'; // Orange
-  ctx.font = `bold ${18 * SCALE}px sans-serif`;
+  ctx.font = `bold ${18 * SCALE}px Arial`;
   
   // Handle text wrapping if name is too long
   const maxWidth = width - 30 * SCALE;
