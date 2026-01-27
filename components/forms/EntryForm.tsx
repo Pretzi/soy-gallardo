@@ -65,6 +65,7 @@ export function EntryForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingSelfie, setIsUploadingSelfie] = useState(false);
+  const [isProcessingSelfie, setIsProcessingSelfie] = useState(false);
   const [isUploadingIneFront, setIsUploadingIneFront] = useState(false);
   const [isUploadingIneBack, setIsUploadingIneBack] = useState(false);
   const [ineFrontDeleted, setIneFrontDeleted] = useState(false);
@@ -285,6 +286,49 @@ export function EntryForm({
       alert(error.message || 'Error al subir la selfie');
     } finally {
       setIsUploadingSelfie(false);
+    }
+  };
+
+  const handleReprocessSelfie = async () => {
+    if (!formData.selfieUrl || !isOnline) return;
+
+    setIsProcessingSelfie(true);
+    try {
+      // Fetch the current selfie image
+      const imageResponse = await fetch(formData.selfieUrl);
+      if (!imageResponse.ok) {
+        throw new Error('No se pudo cargar la imagen actual');
+      }
+
+      const imageBlob = await imageResponse.blob();
+      const imageFile = new File([imageBlob], 'selfie.jpg', { type: imageBlob.type });
+
+      // Upload with background processing enabled
+      const formDataUpload = new FormData();
+      formDataUpload.append('selfie', imageFile);
+      formDataUpload.append('processBackground', 'true'); // Always process when re-processing
+
+      const response = await fetch('/api/selfie/upload', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al procesar la selfie');
+      }
+
+      const data = await response.json();
+      setFormData((prev) => ({
+        ...prev,
+        selfieUrl: data.url,
+        selfieS3Key: data.s3Key,
+      }));
+
+      alert('Selfie procesada exitosamente. El fondo ha sido removido.');
+    } catch (error: any) {
+      alert(error.message || 'Error al procesar la selfie');
+    } finally {
+      setIsProcessingSelfie(false);
     }
   };
 
@@ -773,6 +817,23 @@ export function EntryForm({
               }}
               onLoad={() => console.log('Image loaded successfully:', formData.selfieUrl)}
             />
+            {/* Re-process button - only show when online */}
+            {isOnline && (
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={isProcessingSelfie}
+                  onClick={handleReprocessSelfie}
+                  className="w-full md:w-auto"
+                >
+                  {isProcessingSelfie ? 'Procesando...' : '🤖 Remover fondo con IA'}
+                </Button>
+                <p className="text-xs text-gray-500 mt-1">
+                  Re-procesa la foto actual para remover el fondo automáticamente
+                </p>
+              </div>
+            )}
           </div>
         )}
 

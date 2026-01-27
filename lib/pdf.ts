@@ -3,6 +3,7 @@ import type { Entry } from './validation';
 import { formatFullName } from './validation';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import sharp from 'sharp';
 
 export async function generateEntryPDF(entry: Entry, selfieBuffer?: Buffer): Promise<Buffer> {
   // ID Card size: 85.6mm × 53.98mm = 242.64 × 153 points (at 72 DPI)
@@ -56,24 +57,75 @@ export async function generateEntryPDF(entry: Entry, selfieBuffer?: Buffer): Pro
   let selfieY = 0;
   if (selfieBuffer) {
     try {
-      let image;
-      try {
-        image = await pdfDoc.embedJpg(selfieBuffer);
-      } catch {
-        image = await pdfDoc.embedPng(selfieBuffer);
+      // Process image with sharp to auto-rotate based on EXIF orientation
+      // Read metadata to check orientation, then rotate accordingly
+      const sharpImage = sharp(selfieBuffer);
+      const metadata = await sharpImage.metadata();
+      
+      // Calculate rotation angle based on EXIF orientation
+      // EXIF orientation values: 1=0°, 3=180°, 6=90°CW, 8=90°CCW
+      let rotationAngle = 0;
+      if (metadata.orientation) {
+        switch (metadata.orientation) {
+          case 3:
+            rotationAngle = 180;
+            break;
+          case 6:
+            rotationAngle = 90;
+            break;
+          case 8:
+            rotationAngle = -90; // or 270
+            break;
+          default:
+            rotationAngle = 0;
+        }
       }
       
-      // Photo below orange stripe, left side
-      const imageDims = image.scale(photoSize / image.width);
-      selfieHeight = imageDims.height;
-      selfieWidth = imageDims.width;
-      selfieY = height - headerHeight - imageDims.height - 10;
+      // Process image: rotate if needed, resize to 100x100 square, then convert to JPEG
+      let processedImage = sharpImage;
+      if (rotationAngle !== 0) {
+        processedImage = processedImage.rotate(rotationAngle);
+      }
+      
+      // Resize to exactly 100x100 square (cover mode - maintains aspect ratio, may crop)
+      processedImage = processedImage.resize(photoSize, photoSize, {
+        fit: 'cover', // Fill the square, may crop edges
+        position: 'center', // Center the image when cropping
+      });
+      
+      const processedBuffer = await processedImage
+        .jpeg({ quality: 95 }) // Convert to JPEG for consistent format
+        .toBuffer();
+      
+      let image;
+      try {
+        image = await pdfDoc.embedJpg(processedBuffer);
+      } catch {
+        // If JPEG fails, try PNG (shouldn't happen after sharp processing, but just in case)
+        let pngImage = sharpImage;
+        if (rotationAngle !== 0) {
+          pngImage = pngImage.rotate(rotationAngle);
+        }
+        // Resize to 100x100 square for PNG fallback too
+        pngImage = pngImage.resize(photoSize, photoSize, {
+          fit: 'cover',
+          position: 'center',
+        });
+        const pngBuffer = await pngImage.png().toBuffer();
+        image = await pdfDoc.embedPng(pngBuffer);
+      }
+      
+      // Photo below orange stripe, left side - fixed 100x100 square
+      // Image is already resized to 100x100 by sharp, so dimensions are fixed
+      selfieHeight = photoSize;
+      selfieWidth = photoSize;
+      selfieY = height - headerHeight - photoSize - 10;
       
       page.drawImage(image, {
         x: 15,
         y: selfieY,
-        width: imageDims.width,
-        height: imageDims.height,
+        width: photoSize, // Fixed width: 100 points
+        height: photoSize, // Fixed height: 100 points
       });
     } catch (error) {
       console.error('Error embedding selfie in PDF:', error);

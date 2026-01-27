@@ -106,11 +106,30 @@ export default function NewEntryPage() {
       setIneFrontUrl(uploadData.url);
       setIneFrontS3Key(uploadData.s3Key);
 
-      // Just store the uploaded INE URLs, no AI parsing
-      const parsedData: Partial<EntryCreate> = {
+      // Parse the INE image with OpenAI to extract form data
+      const parseFormData = new FormData();
+      parseFormData.append('ine', file);
+
+      const parseResponse = await fetch('/api/ine/parse', {
+        method: 'POST',
+        body: parseFormData,
+      });
+
+      let parsedData: Partial<EntryCreate> = {
         ineFrontUrl: uploadData.url,
         ineFrontS3Key: uploadData.s3Key,
       };
+
+      if (parseResponse.ok) {
+        const parseResult: INEParseResponse = await parseResponse.json();
+        // Merge parsed data with uploaded URLs
+        parsedData = {
+          ...parseResult,
+          ...parsedData,
+        };
+      } else {
+        console.warn('Failed to parse INE image, continuing with manual entry');
+      }
 
       setIneData(parsedData);
       setStep(2);
@@ -285,7 +304,7 @@ export default function NewEntryPage() {
               // Online mode - INE scan available
               <>
                 <p className="text-base text-gray-800 mb-4">
-                  Sube una foto o escaneo de la credencial INE. Deberás llenar el formulario manualmente.
+                  Sube una foto o escaneo de la credencial INE. El sistema analizará la imagen y llenará automáticamente los campos disponibles.
             </p>
 
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
