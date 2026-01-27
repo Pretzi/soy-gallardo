@@ -183,19 +183,19 @@ export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): P
   ctx.fillStyle = '#000000';
   ctx.font = `bold ${16 * SCALE}px Arial`;
   ctx.fillText('Número de afiliado:', 15 * SCALE, yPosition);
-  yPosition += 14 * SCALE; // Move DOWN for the value (closer spacing)
+  yPosition += 18 * SCALE; // Move DOWN for the value (increased gap between label and value)
 
   // Folio (large, orange) - BELOW the label
   ctx.fillStyle = '#FF6600'; // Orange
   ctx.font = `bold ${18 * SCALE}px Arial`;
   ctx.fillText(entry.folio || '', 15 * SCALE, yPosition);
-  yPosition += 30 * SCALE; // Extra space before next section (increased gap)
+  yPosition += 24 * SCALE; // Extra space before next section (reduced gap between sections)
 
   // "Nombre completo:" label - ABOVE the name value
   ctx.fillStyle = '#000000';
   ctx.font = `bold ${16 * SCALE}px Arial`;
   ctx.fillText('Nombre completo:', 15 * SCALE, yPosition);
-  yPosition += 14 * SCALE; // Move DOWN for the value (closer spacing)
+  yPosition += 18 * SCALE; // Move DOWN for the value (increased gap between label and value)
 
   // Full name (large, orange) - BELOW the label
   const fullName = formatFullName(entry).toUpperCase();
