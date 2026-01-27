@@ -66,6 +66,10 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
     window.open(`/api/entries/${id}/pdf`, '_blank');
   };
 
+  const handleDownloadImage = () => {
+    window.open(`/api/entries/${id}/image`, '_blank');
+  };
+
   const handleDelete = async () => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta entrada? Esta acción no se puede deshacer.')) {
       return;
@@ -171,6 +175,13 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
               Descargar PDF
             </Button>
             <Button 
+              onClick={() => isOnline ? handleDownloadImage() : alert('Imagen no disponible sin conexión.')}
+              disabled={!isOnline}
+              className={!isOnline ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              Descargar Imagen
+            </Button>
+            <Button 
               onClick={handleDelete} 
               disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700 text-white"
@@ -216,6 +227,14 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
             className={`w-full text-base py-3 ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Descargar PDF {!isOnline && '(Sin conexión)'}
+          </Button>
+          <Button 
+            onClick={() => isOnline ? handleDownloadImage() : alert('Imagen no disponible sin conexión.')} 
+            variant="secondary" 
+            disabled={!isOnline}
+            className={`w-full text-base py-3 ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Descargar Imagen {!isOnline && '(Sin conexión)'}
           </Button>
           <OfflineLink href={`/entries/${id}/edit`} className="w-full" offlineMessage="La edición no está disponible sin conexión.">
             <Button variant="secondary" className="w-full text-base py-3">
