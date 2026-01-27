@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { HeaderNav } from "@/components/HeaderNav";
 import { OfflineProvider } from "@/contexts/OfflineContext";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
+        <ServiceWorkerRegister />
         <OfflineProvider>
         <header className="bg-white border-b-4 border-orange-500 shadow-md">
           <div className="container mx-auto px-4 py-3 md:py-2">
