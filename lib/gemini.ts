@@ -69,60 +69,29 @@ DO NOT change or modify the person's appearance in any way - only replace the ba
     console.error('❌ Error with Gemini 2.5 Flash Image:', error);
     console.log('Error details:', error.message);
     
-    // Fallback: try background removal library
-    console.log('⚠️ Falling back to AI background removal...');
-    try {
-      const { removeBackground } = await import('@imgly/background-removal-node');
-      const blob = new Blob([new Uint8Array(imageBuffer)]);
-      const removedBgBlob = await removeBackground(blob);
-      const removedBgBuffer = Buffer.from(await removedBgBlob.arrayBuffer());
-      
-      const fallbackImage = await sharp(removedBgBuffer)
-        .resize(1024, 1024, {
-          fit: 'contain',
-          background: { r: 255, g: 255, b: 255, alpha: 1 }
-        })
-        .flatten({ background: { r: 255, g: 255, b: 255 } })
-        .normalize()
-        .sharpen()
-        .jpeg({ quality: 95 })
-        .toBuffer();
-      
-      console.log(`✅ Fallback background removal complete: ${fallbackImage.length} bytes`);
-      return fallbackImage;
-    } catch (fallbackError) {
-      console.error('❌ Fallback also failed:', fallbackError);
-      // Ultimate fallback: simple processing
-      const ultimateFallback = await sharp(imageBuffer)
-        .resize(1024, 1024, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
-        .flatten({ background: { r: 255, g: 255, b: 255 } })
-        .jpeg({ quality: 90 })
-        .toBuffer();
-      
-      return ultimateFallback;
-    }
+    // Fallback: simple processing with sharp (no heavy AI library)
+    console.log('⚠️ Falling back to simple image processing...');
+    const fallbackImage = await sharp(imageBuffer)
+      .resize(1024, 1024, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+      .flatten({ background: { r: 255, g: 255, b: 255 } })
+      .normalize()
+      .sharpen()
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    
+    console.log(`✅ Fallback processing complete: ${fallbackImage.length} bytes`);
+    return fallbackImage;
   }
 }
 
 /**
- * Alternative: Use Gemini Vision to detect face, then remove background
+ * Alternative: Use Gemini Vision to analyze face position for optimal cropping
  */
 export async function processHeadshotWithGeminiVision(imageBuffer: Buffer): Promise<Buffer> {
-  console.log('🎨 Starting Gemini Vision with background removal...');
+  console.log('🎨 Starting Gemini Vision analysis...');
   
   try {
-    // Import background removal dynamically
-    const { removeBackground } = await import('@imgly/background-removal-node');
-    
-    // Step 1: Remove background first
-    console.log('🔍 Removing background with AI...');
-    const blob = new Blob([new Uint8Array(imageBuffer)]);
-    const removedBgBlob = await removeBackground(blob);
-    const removedBgBuffer = Buffer.from(await removedBgBlob.arrayBuffer());
-    
-    console.log(`✅ Background removed: ${removedBgBuffer.length} bytes`);
-
-    // Step 2: Use Gemini to analyze the person for optimal cropping
+    // Use Gemini to analyze the person for optimal cropping
     const base64Image = imageBuffer.toString('base64');
     const mimeType = 'image/jpeg';
 
@@ -159,8 +128,8 @@ export async function processHeadshotWithGeminiVision(imageBuffer: Buffer): Prom
 
     console.log(`📍 Face position: ${faceX}%, ${faceY}%`);
 
-    // Step 3: Create square image with person centered based on face position
-    const finalImage = await sharp(removedBgBuffer)
+    // Create square image with person centered
+    const finalImage = await sharp(imageBuffer)
       .resize(1024, 1024, {
         fit: 'contain',
         background: { r: 255, g: 255, b: 255, alpha: 1 },
@@ -172,14 +141,14 @@ export async function processHeadshotWithGeminiVision(imageBuffer: Buffer): Prom
       .jpeg({ quality: 95 })
       .toBuffer();
 
-    console.log(`🎉 Gemini Vision with background removal complete! Size: ${finalImage.length} bytes`);
+    console.log(`🎉 Gemini Vision processing complete! Size: ${finalImage.length} bytes`);
 
     return finalImage;
   } catch (error: any) {
-    console.error('❌ Error with Gemini Vision + background removal:', error);
-    console.log('Falling back to standard background removal...');
+    console.error('❌ Error with Gemini Vision:', error);
+    console.log('Falling back to primary Gemini processing...');
     
-    // Fallback to standard background removal
+    // Fallback to primary method
     return processHeadshotWithGemini(imageBuffer);
   }
 }

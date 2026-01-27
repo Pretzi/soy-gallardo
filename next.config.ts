@@ -116,7 +116,7 @@ const nextConfig: NextConfig = {
     ],
   },
   // Externalize native modules for server-side rendering
-  serverExternalPackages: ['sharp', '@imgly/background-removal-node'],
+  serverExternalPackages: ['sharp'],
   // Keep Turbopack config for dev mode
   turbopack: {},
 };
