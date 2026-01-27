@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Confetti from 'react-confetti';
 import { Button } from '@/components/ui/Button';
+import { OfflineLink } from '@/components/ui/OfflineLink';
 import { EntryForm } from '@/components/forms/EntryForm';
 import type { EntryCreate, INEParseResponse } from '@/lib/validation';
 import { useOffline } from '@/contexts/OfflineContext';
@@ -407,11 +408,15 @@ export default function NewEntryPage() {
               </div>
 
               <div className="flex flex-col md:flex-row gap-4 justify-center">
-                <Link href={`/entries/${createdEntryId}`} className="w-full md:w-auto">
+                <OfflineLink 
+                  href={`/entries/${createdEntryId}`} 
+                  className="w-full md:w-auto"
+                  offlineMessage="Los detalles de entrada no están disponibles sin conexión. Puedes verla cuando tengas conexión."
+                >
                   <Button className="w-full">
-                    Ver Entrada
+                    Ver Entrada {!isOnline && '(Requiere conexión)'}
                   </Button>
-                </Link>
+                </OfflineLink>
                 <Link href="/entries/new" className="w-full md:w-auto">
                   <Button variant="secondary" className="w-full">
                     Crear Otra Entrada
