@@ -27,12 +27,12 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
       if (isOnline) {
         // Try to fetch from server
         try {
-          const response = await fetch(`/api/entries/${id}`);
-          if (!response.ok) {
-            throw new Error('Entrada no encontrada');
-          }
-          const data = await response.json();
-          setEntry(data);
+      const response = await fetch(`/api/entries/${id}`);
+      if (!response.ok) {
+        throw new Error('Entrada no encontrada');
+      }
+      const data = await response.json();
+      setEntry(data);
           
           // Save to IndexedDB
           await saveEntryLocal({ ...data, syncStatus: 'synced' });

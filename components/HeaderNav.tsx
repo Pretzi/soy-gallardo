@@ -48,14 +48,14 @@ export function HeaderNav() {
       </Link>
 
       {/* Logout Button */}
-      <Button
-        onClick={handleLogout}
-        variant="secondary"
+    <Button
+      onClick={handleLogout}
+      variant="secondary"
         className="text-sm py-1 px-2 md:px-3"
-      >
+    >
         <span className="hidden md:inline">Cerrar Sesión</span>
         <span className="md:hidden">👋</span>
-      </Button>
+    </Button>
     </div>
   );
 }

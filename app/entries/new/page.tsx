@@ -284,33 +284,33 @@ export default function NewEntryPage() {
               <>
                 <p className="text-base text-gray-800 mb-4">
                   Sube una foto o escaneo de la credencial INE. Deberás llenar el formulario manualmente.
-                </p>
+            </p>
 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleINEUpload}
-                    className="hidden"
-                    id="ine-upload"
-                    disabled={isUploadingINE}
-                  />
-                  <div className="text-base md:text-lg text-gray-800 mb-4 font-medium">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleINEUpload}
+                className="hidden"
+                id="ine-upload"
+                disabled={isUploadingINE}
+              />
+              <div className="text-base md:text-lg text-gray-800 mb-4 font-medium">
                     {isUploadingINE ? 'Subiendo imagen...' : 'Click para subir imagen INE'}
-                  </div>
-                  <Button 
-                    type="button" 
-                    disabled={isUploadingINE}
-                    onClick={() => document.getElementById('ine-upload')?.click()}
-                  >
+              </div>
+              <Button 
+                type="button" 
+                disabled={isUploadingINE}
+                onClick={() => document.getElementById('ine-upload')?.click()}
+              >
                     {isUploadingINE ? 'Subiendo...' : 'Seleccionar Imagen'}
-                  </Button>
-                </div>
-                <div className="mt-4">
-                  <Button variant="secondary" onClick={() => setStep(2)}>
-                    Omitir y llenar manualmente
-                  </Button>
-                </div>
+              </Button>
+            </div>
+            <div className="mt-4">
+              <Button variant="secondary" onClick={() => setStep(2)}>
+                Omitir y llenar manualmente
+              </Button>
+            </div>
               </>
             )}
           </div>
@@ -324,23 +324,23 @@ export default function NewEntryPage() {
             {/* Online mode - show folio */}
             {isOnline && (
               <>
-                {isLoadingFolio && (
-                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-blue-800 font-medium">⏳ Obteniendo siguiente folio...</p>
-                  </div>
-                )}
-                
-                {nextFolio && !isLoadingFolio && (
-                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-800">
-                      <span className="font-semibold">Folio asignado:</span> {nextFolio}
-                    </p>
-                    <button
-                      onClick={fetchNextFolio}
-                      className="mt-2 text-sm text-green-700 hover:text-green-900 underline"
-                    >
-                      Actualizar folio
-                    </button>
+            {isLoadingFolio && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-800 font-medium">⏳ Obteniendo siguiente folio...</p>
+              </div>
+            )}
+            
+            {nextFolio && !isLoadingFolio && (
+              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-800">
+                  <span className="font-semibold">Folio asignado:</span> {nextFolio}
+                </p>
+                <button
+                  onClick={fetchNextFolio}
+                  className="mt-2 text-sm text-green-700 hover:text-green-900 underline"
+                >
+                  Actualizar folio
+                </button>
                   </div>
                 )}
               </>

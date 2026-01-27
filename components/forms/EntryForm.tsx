@@ -124,11 +124,11 @@ export function EntryForm({
         // Load from API when online
         try {
           const [loc, sec] = await Promise.all([
-            fetch('/api/options/localidades').then((r) => r.json()),
-            fetch('/api/options/secciones').then((r) => r.json()),
+      fetch('/api/options/localidades').then((r) => r.json()),
+      fetch('/api/options/secciones').then((r) => r.json()),
           ]);
-          setLocalidades(loc.localidades || loc);
-          setSecciones(sec.secciones || sec);
+      setLocalidades(loc.localidades || loc);
+      setSecciones(sec.secciones || sec);
         } catch (error) {
           console.warn('Failed to load options from API, loading from cache:', error);
           // Fallback to cache if API fails
@@ -265,21 +265,21 @@ export function EntryForm({
         formDataUpload.append('selfie', file);
         formDataUpload.append('processBackground', useSelfieProcessing.toString());
 
-        const response = await fetch('/api/selfie/upload', {
-          method: 'POST',
+      const response = await fetch('/api/selfie/upload', {
+        method: 'POST',
           body: formDataUpload,
-        });
+      });
 
-        if (!response.ok) {
-          throw new Error('Error al procesar la selfie');
-        }
+      if (!response.ok) {
+        throw new Error('Error al procesar la selfie');
+      }
 
-        const data = await response.json();
-        setFormData((prev) => ({
-          ...prev,
-          selfieUrl: data.url,
-          selfieS3Key: data.s3Key,
-        }));
+      const data = await response.json();
+      setFormData((prev) => ({
+        ...prev,
+        selfieUrl: data.url,
+        selfieS3Key: data.s3Key,
+      }));
       }
     } catch (error: any) {
       alert(error.message || 'Error al subir la selfie');
@@ -317,31 +317,31 @@ export function EntryForm({
         }
       } else {
         // ONLINE MODE: Upload to S3
-        const formDataUpload = new FormData();
-        formDataUpload.append('ine', file);
-        formDataUpload.append('side', 'front');
+      const formDataUpload = new FormData();
+      formDataUpload.append('ine', file);
+      formDataUpload.append('side', 'front');
 
-        const response = await fetch('/api/ine/upload', {
-          method: 'POST',
-          body: formDataUpload,
-        });
+      const response = await fetch('/api/ine/upload', {
+        method: 'POST',
+        body: formDataUpload,
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al procesar INE frontal');
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al procesar INE frontal');
+      }
 
-        const data = await response.json();
-        setFormData((prev) => ({
-          ...prev,
-          ineFrontUrl: data.url,
-          ineFrontS3Key: data.s3Key,
-        }));
+      const data = await response.json();
+      setFormData((prev) => ({
+        ...prev,
+        ineFrontUrl: data.url,
+        ineFrontS3Key: data.s3Key,
+      }));
         setIneFrontDeleted(false);
-        
-        // Notify parent if callback provided
-        if (onIneFrontUpload) {
-          onIneFrontUpload(data.url, data.s3Key);
+      
+      // Notify parent if callback provided
+      if (onIneFrontUpload) {
+        onIneFrontUpload(data.url, data.s3Key);
         }
       }
       
@@ -385,31 +385,31 @@ export function EntryForm({
         }
       } else {
         // ONLINE MODE: Upload to S3
-        const formDataUpload = new FormData();
-        formDataUpload.append('ine', file);
-        formDataUpload.append('side', 'back');
+      const formDataUpload = new FormData();
+      formDataUpload.append('ine', file);
+      formDataUpload.append('side', 'back');
 
-        const response = await fetch('/api/ine/upload', {
-          method: 'POST',
-          body: formDataUpload,
-        });
+      const response = await fetch('/api/ine/upload', {
+        method: 'POST',
+        body: formDataUpload,
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al procesar INE trasera');
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al procesar INE trasera');
+      }
 
-        const data = await response.json();
-        setFormData((prev) => ({
-          ...prev,
-          ineBackUrl: data.url,
-          ineBackS3Key: data.s3Key,
-        }));
+      const data = await response.json();
+      setFormData((prev) => ({
+        ...prev,
+        ineBackUrl: data.url,
+        ineBackS3Key: data.s3Key,
+      }));
         setIneBackDeleted(false);
-        
-        // Notify parent if callback provided
-        if (onIneBackUpload) {
-          onIneBackUpload(data.url, data.s3Key);
+      
+      // Notify parent if callback provided
+      if (onIneBackUpload) {
+        onIneBackUpload(data.url, data.s3Key);
         }
       }
       

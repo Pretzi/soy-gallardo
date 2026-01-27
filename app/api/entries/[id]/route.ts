@@ -34,7 +34,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-
+    
     // Validate request body
     const validatedData = entryUpdateSchema.parse(body);
 
@@ -51,7 +51,7 @@ export async function PUT(
     return NextResponse.json(entry);
   } catch (error: any) {
     console.error('Error in PUT /api/entries/[id]:', error);
-
+    
     if (error.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Datos de entrada inválidos', details: error.errors },

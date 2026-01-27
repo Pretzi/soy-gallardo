@@ -25,30 +25,45 @@ export default withPWA({
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
   buildExcludes: [/middleware-manifest\.json$/],
-  // Use StaleWhileRevalidate for navigation requests
   cacheOnFrontEndNav: true,
+  // Precache important static pages
+  publicExcludes: ['!noprecache/**/*'],
   runtimeCaching: [
     {
-      // Cache all HTML pages
-      urlPattern: /^https?:\/\/[^/]+\/(?!(api\/)).*$/,
-      handler: 'NetworkFirst',
+      // HTML documents - StaleWhileRevalidate for instant offline access
+      urlPattern: ({ request }: any) => request.destination === 'document',
+      handler: 'StaleWhileRevalidate',
       options: {
-        cacheName: 'pages-cache',
+        cacheName: 'html-cache',
         expiration: {
           maxEntries: 50,
-          maxAgeSeconds: 24 * 60 * 60, // 1 day
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
         },
-        networkTimeoutSeconds: 3,
       },
     },
     {
-      // Don't cache API calls via service worker (let client handle it)
+      // Scripts, styles, workers - CacheFirst for performance
+      urlPattern: ({ request }: any) => 
+        request.destination === 'script' ||
+        request.destination === 'style' ||
+        request.destination === 'worker',
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'asset-cache',
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+        },
+      },
+    },
+    {
+      // API calls - NetworkOnly (handled by client code)
       urlPattern: /^https?:\/\/[^/]+\/api\/.*/,
       handler: 'NetworkOnly',
     },
     {
-      // Cache images from own domain
-      urlPattern: /.*\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
+      // Local images
+      urlPattern: ({ request }: any) => request.destination === 'image',
       handler: 'CacheFirst',
       options: {
         cacheName: 'image-cache',
@@ -59,14 +74,17 @@ export default withPWA({
       },
     },
     {
-      // Cache S3 images
+      // S3 images - CacheFirst for offline support
       urlPattern: /^https:\/\/.*\.s3.*\.amazonaws\.com\/.*/,
       handler: 'CacheFirst',
       options: {
         cacheName: 's3-images',
         expiration: {
-          maxEntries: 150,
+          maxEntries: 200,
           maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+        },
+        cacheableResponse: {
+          statuses: [0, 200],
         },
       },
     },
