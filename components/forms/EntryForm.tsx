@@ -841,7 +841,6 @@ export function EntryForm({
           <input
             type="file"
             accept="image/*"
-            capture="user"
             onChange={handleSelfieUpload}
             className="hidden"
             id="selfie-upload-form"
