@@ -7,7 +7,7 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import type { Entry, EntryCreate } from '@/lib/validation';
-import { getCachedLocalidades, getCachedSecciones } from '@/lib/indexeddb';
+import { getCachedSecciones } from '@/lib/indexeddb';
 
 interface EntryFormProps {
   initialData?: Partial<Entry>;
@@ -70,7 +70,6 @@ export function EntryForm({
   const [isUploadingIneBack, setIsUploadingIneBack] = useState(false);
   const [ineFrontDeleted, setIneFrontDeleted] = useState(false);
   const [ineBackDeleted, setIneBackDeleted] = useState(false);
-  const [localidades, setLocalidades] = useState<string[]>([]);
   const [secciones, setSecciones] = useState<string[]>([]);
   const [duplicateWarning, setDuplicateWarning] = useState<{ message: string; entryId: string; folio: string } | null>(null);
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
@@ -118,31 +117,23 @@ export function EntryForm({
     });
   }, [formData.ineFrontUrl, formData.ineBackUrl, initialIneFrontUrl, initialIneBackUrl]);
 
-  // Load options
+  // Load options (secciones only; localidad is now a free-text field)
   useEffect(() => {
     const loadOptions = async () => {
       if (isOnline) {
         // Load from API when online
         try {
-          const [loc, sec] = await Promise.all([
-      fetch('/api/options/localidades').then((r) => r.json()),
-      fetch('/api/options/secciones').then((r) => r.json()),
-          ]);
-      setLocalidades(loc.localidades || loc);
-      setSecciones(sec.secciones || sec);
+          const sec = await fetch('/api/options/secciones').then((r) => r.json());
+          setSecciones(sec.secciones || sec);
         } catch (error) {
           console.warn('Failed to load options from API, loading from cache:', error);
           // Fallback to cache if API fails
-          const cachedLoc = await getCachedLocalidades();
           const cachedSec = await getCachedSecciones();
-          if (cachedLoc) setLocalidades(cachedLoc);
           if (cachedSec) setSecciones(cachedSec);
         }
       } else {
         // Load from cache when offline
-        const cachedLoc = await getCachedLocalidades();
         const cachedSec = await getCachedSecciones();
-        if (cachedLoc) setLocalidades(cachedLoc);
         if (cachedSec) setSecciones(cachedSec);
       }
     };
@@ -634,15 +625,13 @@ export function EntryForm({
           error={errors.seccionElectoral}
         />
 
-        <Autocomplete
-          label="Localidad"
-          placeholder="Buscar localidad..."
-          options={localidades}
+        <Input
+          label="Comunidad y Colonia"
+          name="localidad"
           value={formData.localidad || ''}
-          onChange={(value) => {
-            setFormData((prev) => ({ ...prev, localidad: value.toUpperCase() }));
-          }}
+          onChange={handleChange}
           error={errors.localidad}
+          className="uppercase"
         />
       </div>
 

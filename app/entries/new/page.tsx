@@ -122,9 +122,10 @@ export default function NewEntryPage() {
 
       if (parseResponse.ok) {
         const parseResult: INEParseResponse = await parseResponse.json();
-        // Merge parsed data with uploaded URLs
+        // Merge parsed data with uploaded URLs (exclude localidad - leave empty for manual entry)
+        const { localidad: _localidad, ...restWithoutLocalidad } = parseResult;
         parsedData = {
-          ...parseResult,
+          ...restWithoutLocalidad,
           ...parsedData,
         };
       } else {
