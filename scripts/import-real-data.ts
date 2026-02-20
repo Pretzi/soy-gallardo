@@ -2,6 +2,7 @@ import { createReadStream } from 'fs';
 import { parse } from 'csv-parse';
 import { docClient, TABLE_NAME } from '../lib/aws/dynamo';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { normalizeForSearch } from '../lib/validation';
 
 interface CSVRow {
   folio: string;
@@ -134,7 +135,7 @@ async function importEntry(row: CSVRow, index: number): Promise<boolean> {
     const nombre = row.nombre.trim();
     const segundoNombre = row.segundoNombre?.trim() || '';
     const apellidos = row.apellidos?.trim() || '';
-    const fullName = [nombre, segundoNombre, apellidos].filter(Boolean).join(' ').toUpperCase();
+    const fullName = normalizeForSearch([nombre, segundoNombre, apellidos].filter(Boolean).join(' ')).toUpperCase();
     
     const localidad = row.localidad?.trim().toUpperCase() || '';
     

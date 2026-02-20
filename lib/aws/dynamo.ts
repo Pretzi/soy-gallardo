@@ -112,11 +112,13 @@ export async function createEntry(data: EntryCreate): Promise<Entry> {
   const id = generateId();
   const now = new Date().toISOString();
   
-  const fullName = formatFullName({
-    nombre: data.nombre,
-    segundoNombre: data.segundoNombre,
-    apellidos: data.apellidos,
-  }).toUpperCase();
+  const fullName = normalizeForSearch(
+    formatFullName({
+      nombre: data.nombre,
+      segundoNombre: data.segundoNombre,
+      apellidos: data.apellidos,
+    })
+  ).toUpperCase();
 
   const entry: Entry = {
     ...data,
@@ -177,12 +179,14 @@ export async function updateEntry(id: string, data: EntryUpdate): Promise<Entry 
   const now = new Date().toISOString();
   const updatedEntry = { ...existing, ...data, updatedAt: now };
 
-  // Recalculate full name for search (use UPPERCASE to match import script)
-  const fullName = formatFullName({
-    nombre: updatedEntry.nombre,
-    segundoNombre: updatedEntry.segundoNombre,
-    apellidos: updatedEntry.apellidos,
-  }).toUpperCase();
+  // Recalculate full name for search (normalized + uppercase for accent-insensitive search)
+  const fullName = normalizeForSearch(
+    formatFullName({
+      nombre: updatedEntry.nombre,
+      segundoNombre: updatedEntry.segundoNombre,
+      apellidos: updatedEntry.apellidos,
+    })
+  ).toUpperCase();
 
   await docClient.send(
     new PutCommand({
@@ -305,15 +309,15 @@ export async function searchEntries(query: string): Promise<Entry[]> {
     return entries;
   }
 
-  // If no folio match, do a scan with name filter (use uppercase for matching imported data)
-  const upperQuery = query.toUpperCase();
+  // If no folio match, do a scan with name filter (normalize to match stored GSI2PK format)
+  const normalizedQuery = normalizeForSearch(query).toUpperCase();
   const nameResult = await docClient.send(
     new ScanCommand({
       TableName: TABLE_NAME,
       FilterExpression: 'begins_with(PK, :prefix) AND contains(GSI2PK, :query)',
       ExpressionAttributeValues: {
         ':prefix': 'ENTRY#',
-        ':query': upperQuery,
+        ':query': normalizedQuery,
       },
     })
   );
@@ -342,7 +346,7 @@ export async function batchWriteEntries(entries: EntryCreate[]): Promise<void> {
         segundoNombre: data.segundoNombre,
         apellidos: data.apellidos,
       });
-      const normalizedName = normalizeForSearch(fullName);
+      const normalizedName = normalizeForSearch(fullName).toUpperCase();
 
       const entry: Entry = {
         ...data,
