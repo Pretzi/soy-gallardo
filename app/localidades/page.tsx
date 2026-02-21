@@ -28,7 +28,7 @@ export default function LocalidadesPage() {
       setLocalidades(data.localidades);
     } catch (error) {
       console.error('Error loading localidades:', error);
-      alert('Error al cargar localidades');
+      alert('Error al cargar comunidades');
     }
   };
 
@@ -98,7 +98,7 @@ export default function LocalidadesPage() {
         {/* Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Entradas por Localidad</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Entradas por Comunidad</h1>
             <Link href="/entries" className="hidden md:block">
               <Button variant="secondary">Volver</Button>
             </Link>
@@ -108,12 +108,12 @@ export default function LocalidadesPage() {
           </p>
         </div>
 
-        {/* Localidad Selector */}
+        {/* Comunidad Selector */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="max-w-full">
             <Autocomplete
-              label="Buscar Localidad"
-              placeholder="Escribe el nombre de la localidad..."
+              label="Buscar Comunidad"
+              placeholder="Escribe el nombre de la comunidad..."
               value={selectedLocalidad}
               onChange={handleLocalidadChange}
               options={localidades}
@@ -126,7 +126,7 @@ export default function LocalidadesPage() {
             <div className="mt-6 pt-6 border-t border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-orange-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 font-medium">Localidad Seleccionada</p>
+                  <p className="text-sm text-gray-600 font-medium">Comunidad Seleccionada</p>
                   <p className="text-2xl font-bold text-orange-600 mt-1">{selectedLocalidad}</p>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-4">

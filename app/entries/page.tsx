@@ -256,7 +256,7 @@ export default function EntriesPage() {
         <div className="flex gap-3 mb-6">
           <Link href="/localidades" className="flex-1 md:flex-none">
             <Button variant="secondary" className="w-full text-sm md:text-base">
-              Ver por Localidades
+              Ver por Comunidades
             </Button>
           </Link>
           <Link href="/secciones" className="flex-1 md:flex-none">
@@ -337,7 +337,7 @@ export default function EntriesPage() {
                       Teléfono
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-orange-900 uppercase tracking-wider">
-                      Localidad
+                      Comunidad
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-orange-900 uppercase tracking-wider">
                       Acciones

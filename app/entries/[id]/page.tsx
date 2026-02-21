@@ -391,7 +391,7 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
               )}
 
               <div>
-                <label className="text-xs md:text-sm font-semibold text-gray-600 uppercase tracking-wide">Localidad</label>
+                <label className="text-xs md:text-sm font-semibold text-gray-600 uppercase tracking-wide">Comunidad</label>
                 <p className="text-base md:text-lg font-medium text-gray-900 mt-1">{entry.localidad || 'N/A'}</p>
               </div>
 

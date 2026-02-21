@@ -173,7 +173,7 @@ export default function SeccionesPage() {
                       Nombre Completo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Localidad
+                      Comunidad
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Acciones
@@ -226,7 +226,7 @@ export default function SeccionesPage() {
                       </p>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-500 font-medium">Localidad:</span>
+                      <span className="text-xs text-gray-500 font-medium">Comunidad:</span>
                       <p className="text-sm text-gray-900">{entry.localidad || 'N/A'}</p>
                     </div>
                   </div>

@@ -212,7 +212,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <span className="text-gray-700">Localidades cacheadas</span>
+              <span className="text-gray-700">Comunidades cacheadas</span>
               <span className="font-bold text-gray-900">{cachedLocalidades}</span>
             </div>
 
