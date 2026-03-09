@@ -346,8 +346,7 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
-                  className="h-8 px-3 text-sm flex items-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white border-0"
+                  className="h-8 px-3 text-sm flex items-center gap-1.5 !bg-[#25D366] hover:!bg-[#20bd5a] text-white border-0"
                   onClick={handleShareWhatsApp}
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
