@@ -21,6 +21,7 @@ export const entrySchema = z.object({
   ineFrontUrl: z.union([z.string().url(), z.literal('')]).optional(),
   ineBackS3Key: z.string().optional(),
   ineBackUrl: z.union([z.string().url(), z.literal('')]).optional(),
+  publicId: z.string().optional(), // unique, unguessable id for public member URL
 });
 
 export const entryCreateSchema = entrySchema;

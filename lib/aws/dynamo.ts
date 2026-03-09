@@ -11,6 +11,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { Entry, EntryCreate, EntryUpdate } from '../validation';
 import { normalizeForSearch, formatFullName } from '../validation';
+import { randomBytes } from 'crypto';
 
 const client = new DynamoDBClient({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -41,6 +42,15 @@ function sortByFolioDescending(entries: Entry[]): void {
 // Generate unique ID
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Generate unguessable public ID for member URLs (12 chars, lowercase + digits)
+export function generatePublicId(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  const bytes = randomBytes(12);
+  for (let i = 0; i < 12; i++) id += chars[bytes[i]! % chars.length];
+  return id;
 }
 
 // Get the latest folio number
@@ -107,7 +117,77 @@ export async function folioExists(folio: string): Promise<boolean> {
   }
 }
 
-// Create entry
+// Get entry by folio (for public member view)
+export async function getEntryByFolio(folio: string): Promise<Entry | null> {
+  try {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :folio',
+        ExpressionAttributeValues: {
+          ':folio': `FOLIO#${folio}`,
+        },
+        Limit: 1,
+      })
+    );
+
+    if (!result.Items || result.Items.length === 0) {
+      return null;
+    }
+
+    const item = result.Items[0];
+    const { PK, SK, GSI1PK, GSI2PK, GSI1SK, GSI2SK, GSI3PK, GSI3SK, GSI4PK, GSI4SK, ...entry } = item;
+    return entry as Entry;
+  } catch (error) {
+    console.error('Error getting entry by folio:', error);
+    return null;
+  }
+}
+
+// Get entry by public ID (for public member URL - not guessable)
+export async function getEntryByPublicId(publicId: string): Promise<Entry | null> {
+  try {
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const result = await docClient.send(
+        new ScanCommand({
+          TableName: TABLE_NAME,
+          FilterExpression: 'begins_with(PK, :prefix) AND publicId = :publicId',
+          ExpressionAttributeValues: {
+            ':prefix': 'ENTRY#',
+            ':publicId': publicId,
+          },
+          ExclusiveStartKey: lastKey,
+          // No Limit: must scan pages until we find a match (Limit is applied before filter)
+        })
+      );
+
+      if (result.Items && result.Items.length > 0) {
+        const item = result.Items[0];
+        const { PK, SK, GSI1PK, GSI2PK, GSI1SK, GSI2SK, GSI3PK, GSI3SK, GSI4PK, GSI4SK, ...entry } = item;
+        return entry as Entry;
+      }
+
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+
+    return null;
+  } catch (error) {
+    console.error('Error getting entry by publicId:', error);
+    return null;
+  }
+}
+
+// Ensure entry has a publicId (generate and save if missing). Returns updated entry.
+export async function ensureEntryPublicId(id: string): Promise<Entry | null> {
+  const entry = await getEntry(id);
+  if (!entry) return null;
+  if (entry.publicId) return entry;
+  const updated = await updateEntry(id, { publicId: generatePublicId() });
+  return updated;
+}
+
 export async function createEntry(data: EntryCreate): Promise<Entry> {
   const id = generateId();
   const now = new Date().toISOString();
@@ -125,6 +205,7 @@ export async function createEntry(data: EntryCreate): Promise<Entry> {
     id,
     createdAt: now,
     updatedAt: now,
+    publicId: generatePublicId(),
   };
 
   await docClient.send(
@@ -178,6 +259,10 @@ export async function updateEntry(id: string, data: EntryUpdate): Promise<Entry 
 
   const now = new Date().toISOString();
   const updatedEntry = { ...existing, ...data, updatedAt: now };
+  // Preserve publicId if not being updated (so partial updates don't clear it)
+  if (updatedEntry.publicId === undefined && existing.publicId) {
+    updatedEntry.publicId = existing.publicId;
+  }
 
   // Recalculate full name for search (normalized + uppercase for accent-insensitive search)
   const fullName = normalizeForSearch(

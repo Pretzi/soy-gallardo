@@ -9,7 +9,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow access to PWA files (service worker, manifest, etc.)
+  // Allow public access to members pages and API (no auth required)
+  if (pathname.startsWith('/members') || pathname.startsWith('/api/members')) {
+    return NextResponse.next();
+  }
+
+  // Allow static assets (images, fonts, etc.) so they load on public pages like /members
+  const staticExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.woff2', '.woff', '.ttf', '.eot'];
+  if (staticExtensions.some((ext) => pathname.endsWith(ext))) {
+    return NextResponse.next();
+  }
   if (
     pathname === '/sw.js' ||
     pathname === '/manifest.json' ||

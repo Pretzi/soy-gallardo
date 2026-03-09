@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx scripts/seed-dynamo.ts"
+    "seed": "tsx scripts/seed-dynamo.ts",
+    "backfill-public-ids": "tsx scripts/backfill-public-ids.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.713.0",
@@ -25,6 +26,7 @@
     "next": "16.1.4",
     "openai": "^4.77.3",
     "pdf-lib": "^1.17.1",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.3",
     "react-confetti": "^6.4.0",
     "react-dom": "19.2.3",

@@ -15,6 +15,11 @@ export function HeaderNav() {
     return null;
   }
 
+  // Public member view: no nav (no Inicio, settings, or logout)
+  if (pathname?.startsWith('/members')) {
+    return null;
+  }
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
