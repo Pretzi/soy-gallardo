@@ -211,7 +211,13 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
     if (!publicId) return;
     const url = `${window.location.origin}/members/${publicId}`;
     const text = `Aquí está el enlace a tu credencial Soy Gallardo: ${url}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    const rawPhone = entry?.telefono?.trim() || '';
+    const digits = rawPhone.replace(/\D/g, '');
+    const phone = digits.length === 10 ? `52${digits}` : digits; // Mexico country code if 10 digits
+    const waUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
   if (isLoading) {
