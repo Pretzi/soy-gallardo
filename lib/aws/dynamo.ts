@@ -572,3 +572,78 @@ export async function getCountBySeccion(seccion: string): Promise<number> {
 
   return result.Count || 0;
 }
+
+// ========== CUSTOM LOCALIDADES (COMUNIDADES) ==========
+// Stored in same table with PK OPTION#LOCALIDAD for user-added communities
+
+const OPTION_LOCALIDAD_PK = 'OPTION#LOCALIDAD';
+
+function localidadToSK(name: string): string {
+  const normalized = (name || '').trim().toUpperCase();
+  return `LOCALIDAD#${normalized}`;
+}
+
+export async function getCustomLocalidades(): Promise<string[]> {
+  try {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: {
+          ':pk': OPTION_LOCALIDAD_PK,
+        },
+      })
+    );
+
+    if (!result.Items || result.Items.length === 0) {
+      return [];
+    }
+
+    const names = result.Items.map((item) => (item.name as string) || '')
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'es'));
+    return names;
+  } catch (error) {
+    console.error('Error getting custom localidades:', error);
+    return [];
+  }
+}
+
+export async function addCustomLocalidad(name: string): Promise<string> {
+  const trimmed = (name || '').trim();
+  if (!trimmed) {
+    throw new Error('El nombre de la comunidad es requerido');
+  }
+
+  const displayName = trimmed;
+  const sk = localidadToSK(displayName);
+  const now = new Date().toISOString();
+
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: OPTION_LOCALIDAD_PK,
+        SK: sk,
+        name: displayName,
+        createdAt: now,
+      },
+    })
+  );
+
+  return displayName;
+}
+
+export async function customLocalidadExists(name: string): Promise<boolean> {
+  const sk = localidadToSK(name);
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: OPTION_LOCALIDAD_PK,
+        SK: sk,
+      },
+    })
+  );
+  return !!result.Item;
+}

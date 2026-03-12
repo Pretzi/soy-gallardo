@@ -10,6 +10,10 @@ interface AutocompleteProps {
   onChange: (value: string) => void;
   required?: boolean;
   error?: string;
+  /** When provided, shows an "Add new" option when no results match (e.g. for adding new Comunidad) */
+  onAddNew?: (value: string) => Promise<void>;
+  /** Label for the add-new option, e.g. "Agregar como nueva comunidad" */
+  addNewLabel?: string;
 }
 
 export function Autocomplete({
@@ -20,13 +24,23 @@ export function Autocomplete({
   onChange,
   required = false,
   error,
+  onAddNew,
+  addNewLabel,
 }: AutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const [filteredOptions, setFilteredOptions] = useState<string[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isAddingNew, setIsAddingNew] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const showAddNew = Boolean(
+    onAddNew &&
+    isOpen &&
+    filteredOptions.length === 0 &&
+    inputValue.trim() &&
+    !isAddingNew
+  );
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -79,6 +93,23 @@ export function Autocomplete({
     setHighlightedIndex(-1);
   };
 
+  const handleAddNew = async () => {
+    const newValue = inputValue.trim();
+    if (!newValue || !onAddNew) return;
+    setIsAddingNew(true);
+    try {
+      await onAddNew(newValue);
+      setInputValue(newValue);
+      onChange(newValue);
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    } catch (err) {
+      console.error('Add new failed:', err);
+    } finally {
+      setIsAddingNew(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
@@ -101,6 +132,10 @@ export function Autocomplete({
         break;
       case 'Enter':
         e.preventDefault();
+        if (showAddNew) {
+          handleAddNew();
+          return;
+        }
         if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
           handleOptionClick(filteredOptions[highlightedIndex]);
         } else if (filteredOptions.length === 1) {
@@ -157,9 +192,22 @@ export function Autocomplete({
           </div>
         )}
 
-        {isOpen && filteredOptions.length === 0 && inputValue && (
+        {showAddNew && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+            <button
+              type="button"
+              onClick={handleAddNew}
+              className="w-full px-3 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 font-medium flex items-center gap-2"
+            >
+              <span aria-hidden>+</span>
+              {addNewLabel ? addNewLabel.replace('{value}', inputValue.trim()) : `Agregar "${inputValue.trim()}" como nueva comunidad`}
+            </button>
+          </div>
+        )}
+
+        {isOpen && filteredOptions.length === 0 && inputValue && !showAddNew && (
           <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg px-3 py-2 text-sm text-gray-500">
-            No se encontraron resultados
+            {isAddingNew ? 'Agregando...' : 'No se encontraron resultados'}
           </div>
         )}
       </div>

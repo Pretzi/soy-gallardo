@@ -147,8 +147,8 @@ export default function EditEntryPage({ params }: { params: Promise<{ id: string
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw error;
+      const err = await response.json();
+      throw new Error(err.error || err.message || 'Error al guardar');
     }
     
     const updatedEntry = await response.json();

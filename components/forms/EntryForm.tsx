@@ -7,7 +7,7 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import type { Entry, EntryCreate } from '@/lib/validation';
-import { getCachedLocalidades, getCachedSecciones } from '@/lib/indexeddb';
+import { getCachedLocalidades, getCachedSecciones, cacheLocalidades } from '@/lib/indexeddb';
 
 interface EntryFormProps {
   initialData?: Partial<Entry>;
@@ -643,6 +643,20 @@ export function EntryForm({
             setFormData((prev) => ({ ...prev, localidad: value.toUpperCase() }));
           }}
           error={errors.localidad}
+          onAddNew={isOnline ? async (name) => {
+            const res = await fetch('/api/options/localidades', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Error al agregar comunidad');
+            if (data.localidades) {
+              setLocalidades(data.localidades);
+              await cacheLocalidades(data.localidades);
+            }
+          } : undefined}
+          addNewLabel={'Agregar "{value}" como nueva comunidad'}
         />
       </div>
 
