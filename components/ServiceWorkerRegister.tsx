@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 export function ServiceWorkerRegister() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -13,36 +14,30 @@ export function ServiceWorkerRegister() {
     // next-pwa handles registration automatically via register: true in config
     // This component now focuses on update notifications and cache management
 
-    const handleServiceWorkerUpdate = () => {
-      navigator.serviceWorker.ready.then((registration) => {
-        // Check for updates periodically
-        const checkForUpdates = () => {
-          registration.update().catch((err) => {
-            console.log('[SW] Update check failed:', err);
-          });
-        };
+    const promptIfWaiting = (registration: ServiceWorkerRegistration) => {
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        console.log('[SW] New version waiting');
+        setUpdateAvailable(true);
+      }
+    };
 
-        // Check every 5 minutes
-        const interval = setInterval(checkForUpdates, 5 * 60 * 1000);
+    const forceActivateWaitingWorker = async () => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) return;
+      if (registration.waiting) {
+        // Workbox listens for this message and will call skipWaiting().
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+    };
 
-        // Listen for new service worker installation
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (
-                newWorker.state === 'installed' &&
-                navigator.serviceWorker.controller
-              ) {
-                console.log('[SW] New version available');
-                setUpdateAvailable(true);
-              }
-            });
-          }
-        });
-
-        return () => clearInterval(interval);
-      });
+    const checkForUpdates = async () => {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.update();
+        promptIfWaiting(registration);
+      } catch (err) {
+        console.log('[SW] Update check failed:', err);
+      }
     };
 
     // Handle controller change (new service worker activated)
@@ -53,14 +48,33 @@ export function ServiceWorkerRegister() {
 
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
-    // Set up update checking once SW is ready
-    if (navigator.serviceWorker.controller) {
-      handleServiceWorkerUpdate();
-    } else {
-      navigator.serviceWorker.ready.then(handleServiceWorkerUpdate);
-    }
+    let interval: number | undefined;
+    let mounted = true;
+
+    // One immediate check on load (helps right-after-deploy users).
+    checkForUpdates();
+
+    // Periodic checks.
+    interval = window.setInterval(checkForUpdates, 5 * 60 * 1000);
+
+    // Also listen for updates discovered by the browser.
+    navigator.serviceWorker.ready.then((registration) => {
+      if (!mounted) return;
+      promptIfWaiting(registration);
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed') {
+            promptIfWaiting(registration);
+          }
+        });
+      });
+    });
 
     return () => {
+      mounted = false;
+      if (interval) window.clearInterval(interval);
       navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
     };
   }, []);
@@ -74,10 +88,25 @@ export function ServiceWorkerRegister() {
           Recarga la página para obtener las últimas actualizaciones.
         </p>
         <button
-          onClick={() => window.location.reload()}
-          className="bg-white text-orange-600 px-4 py-2 rounded font-medium text-sm hover:bg-orange-50 transition-colors"
+          onClick={async () => {
+            setIsUpdating(true);
+            try {
+              // Ask the waiting SW to activate immediately, then controllerchange will reload.
+              const registration = await navigator.serviceWorker.getRegistration();
+              if (registration?.waiting) {
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                return;
+              }
+              // Fallback: if nothing is waiting, just hard reload.
+              window.location.reload();
+            } finally {
+              setIsUpdating(false);
+            }
+          }}
+          className="bg-white text-orange-600 px-4 py-2 rounded font-medium text-sm hover:bg-orange-50 transition-colors disabled:opacity-60"
+          disabled={isUpdating}
         >
-          Actualizar Ahora
+          {isUpdating ? 'Actualizando...' : 'Actualizar Ahora'}
         </button>
       </div>
     );

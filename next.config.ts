@@ -18,8 +18,9 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === "development",
   register: true,
   // Cache all pages for offline access
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
+  cacheOnFrontEndNav: false,
+  // Aggressive caching can keep old HTML after deploy; prefer fresher network responses.
+  aggressiveFrontEndNavCaching: false,
   // Pre-cache important routes with fallbacks
   fallbacks: {
     document: "/offline",
@@ -75,7 +76,8 @@ const withPWA = withPWAInit({
             maxEntries: 100,
             maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
           },
-          networkTimeoutSeconds: 3,
+          // Avoid falling back to cached HTML too aggressively right after deploy.
+          networkTimeoutSeconds: 10,
         },
       },
       {
