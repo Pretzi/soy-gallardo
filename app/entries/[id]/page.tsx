@@ -1,13 +1,28 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { OfflineLink } from '@/components/ui/OfflineLink';
-import type { Entry } from '@/lib/validation';
+import type { Entry, EntryCreate } from '@/lib/validation';
 import { useOffline } from '@/contexts/OfflineContext';
 import { getEntryLocal, saveEntryLocal, deleteEntryLocal, addToQueue, deletePhotosLocal } from '@/lib/indexeddb';
+
+type SyncStatus = 'synced' | 'pending' | 'failed';
+type EntryExtras = Entry & {
+  syncStatus?: SyncStatus;
+  publicId?: string;
+  ineFrontUrl?: string;
+  ineBackUrl?: string;
+  cargo?: string;
+  casilla?: string;
+};
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return 'Error inesperado';
+}
 
 export default function EntryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -18,6 +33,16 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
   const [isDeleting, setIsDeleting] = useState(false);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const handleBack = () => {
+    // Prefer history (preserves pagination), fallback for direct entry links.
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/entries');
+  };
+
+  const entryExtras = entry as EntryExtras | null;
 
   useEffect(() => {
     loadEntry();
@@ -57,8 +82,8 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
           throw new Error('Entrada no encontrada en modo offline');
         }
       }
-    } catch (error: any) {
-      alert(error.message || 'Error al cargar la entrada');
+    } catch (error: unknown) {
+      alert(getErrorMessage(error) || 'Error al cargar la entrada');
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +121,7 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
             });
             return; // Successfully shared/saved
           }
-        } catch (shareError: any) {
+        } catch (_shareError: unknown) {
           // If share fails or user cancels, fall through to download method
           console.log('Web Share API not available or cancelled, using fallback');
         }
@@ -121,8 +146,8 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
       
       // Clean up blob URL after a delay
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    } catch (error: any) {
-      alert(error.message || 'Error al descargar la imagen');
+    } catch (error: unknown) {
+      alert(getErrorMessage(error) || 'Error al descargar la imagen');
     }
   };
 
@@ -137,7 +162,7 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
         // OFFLINE MODE: Queue for deletion
         await addToQueue({
           type: 'DELETE',
-          data: { id } as any,
+          data: ({ id } as unknown as EntryCreate & { id: string }),
         });
 
         // Delete locally
@@ -168,8 +193,8 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
         // Use window.location for offline-friendly navigation
         window.location.href = '/entries';
       }
-    } catch (error: any) {
-      alert(error.message || 'Error al eliminar la entrada');
+    } catch (error: unknown) {
+      alert(getErrorMessage(error) || 'Error al eliminar la entrada');
     } finally {
       setIsDeleting(false);
     }
@@ -186,8 +211,8 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
       if (!res.ok) throw new Error('Error al generar enlace');
       const { publicId } = await res.json();
       setEntry((e) => (e ? { ...e, publicId } : e));
-    } catch (err: any) {
-      alert(err.message || 'Error al generar enlace público');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'Error al generar enlace público');
     } finally {
       setIsGeneratingLink(false);
     }
@@ -233,9 +258,7 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
           <p className="text-base md:text-lg text-gray-800 mb-6 font-medium">Entrada no encontrada</p>
-          <Link href="/entries">
-            <Button className="px-6 py-3">Volver a la lista</Button>
-          </Link>
+          <Button className="px-6 py-3" onClick={handleBack}>Volver a la lista</Button>
         </div>
       </div>
     );
@@ -245,12 +268,16 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-4 md:py-8">
         {/* Back button for mobile */}
-        <Link href="/entries" className="inline-flex items-center gap-2 text-gray-700 hover:text-gray-900 mb-4 md:hidden">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-2 text-gray-700 hover:text-gray-900 mb-4 md:hidden"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
           <span className="font-medium">Volver</span>
-        </Link>
+        </button>
 
         {/* Header with title */}
         <div className="mb-6 md:mb-8">
@@ -317,7 +344,7 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* Sync Status Banners */}
-        {(entry as any).syncStatus === 'pending' && (
+        {entryExtras?.syncStatus === 'pending' && (
           <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
             <p className="text-sm font-medium text-yellow-800">
               🟡 Esta entrada tiene cambios pendientes de sincronización
@@ -337,10 +364,10 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
         {isOnline && (
           <div className="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
             <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Enlace público (miembro)</p>
-            {(entry as Entry & { publicId?: string }).publicId ? (
+            {entryExtras?.publicId ? (
               <div className="flex flex-wrap items-center gap-2">
                 <code className="text-sm text-gray-800 bg-gray-100 px-2 py-1 rounded truncate max-w-full">
-                  /members/{(entry as Entry & { publicId?: string }).publicId}
+                  /members/{entryExtras.publicId}
                 </code>
                 <Button
                   type="button"
@@ -472,10 +499,10 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
                 <p className="text-base md:text-lg font-medium text-gray-900 mt-1">{entry.seccionElectoral || 'N/A'}</p>
               </div>
 
-              {(entry as any).casilla && (
+              {entryExtras?.casilla && (
                 <div>
                   <label className="text-xs md:text-sm font-semibold text-gray-600 uppercase tracking-wide">Casilla</label>
-                  <p className="text-sm md:text-base font-medium text-gray-900 mt-1">{(entry as any).casilla}</p>
+                  <p className="text-sm md:text-base font-medium text-gray-900 mt-1">{entryExtras.casilla}</p>
                 </div>
               )}
 
@@ -484,32 +511,32 @@ export default function EntryDetailPage({ params }: { params: Promise<{ id: stri
                 <p className="text-base md:text-lg font-medium text-gray-900 mt-1">{entry.localidad || 'N/A'}</p>
               </div>
 
-              {(entry as any).cargo && (
+              {entryExtras?.cargo && (
                 <div>
                   <label className="text-xs md:text-sm font-semibold text-gray-600 uppercase tracking-wide">Cargo</label>
-                  <p className="text-base md:text-lg font-medium text-gray-900 mt-1">{(entry as any).cargo}</p>
+                  <p className="text-base md:text-lg font-medium text-gray-900 mt-1">{entryExtras.cargo}</p>
                 </div>
               )}
             </div>
 
             {/* Right Column */}
             <div className="space-y-4">
-              {(entry as any).ineFrontUrl && (
+              {entryExtras?.ineFrontUrl && (
                 <div>
                   <label className="text-xs md:text-sm font-semibold text-gray-600 uppercase tracking-wide">INE Frontal</label>
                   <img
-                    src={(entry as any).ineFrontUrl}
+                    src={entryExtras.ineFrontUrl}
                     alt="INE Frontal"
                     className="mt-2 w-full max-w-md rounded-lg shadow-md mx-auto md:mx-0"
                   />
                 </div>
               )}
 
-              {(entry as any).ineBackUrl && (
+              {entryExtras?.ineBackUrl && (
                 <div>
                   <label className="text-xs md:text-sm font-semibold text-gray-600 uppercase tracking-wide">INE Trasera</label>
                   <img
-                    src={(entry as any).ineBackUrl}
+                    src={entryExtras.ineBackUrl}
                     alt="INE Trasera"
                     className="mt-2 w-full max-w-md rounded-lg shadow-md mx-auto md:mx-0"
                   />

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { OfflineLink } from '@/components/ui/OfflineLink';
@@ -9,8 +10,13 @@ import type { Entry } from '@/lib/validation';
 import { useOffline } from '@/contexts/OfflineContext';
 import { getEntriesLocal, saveEntryLocal, searchEntriesLocal, cacheLocalidades, cacheSecciones } from '@/lib/indexeddb';
 
+type SyncStatus = 'synced' | 'pending' | 'failed';
+type SyncableEntry = Entry & { syncStatus?: SyncStatus };
+
 export default function EntriesPage() {
   const { isOnline, isSyncing, pendingCount, syncNow, refreshStats } = useOffline();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,6 +26,38 @@ export default function EntriesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
+
+  const getDesiredPageFromUrl = useCallback(() => {
+    // We read from the URL so Back/Forward restores the right page.
+    const raw = searchParams?.get('page');
+    const parsed = raw ? Number(raw) : 1;
+    return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
+  }, [searchParams]);
+
+  const clampPage = useCallback((page: number, totalItems: number) => {
+    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+    return Math.min(Math.max(1, page), totalPages);
+  }, [itemsPerPage]);
+
+  const updateUrlPage = useCallback((page: number) => {
+    const nextParams = new URLSearchParams(searchParams?.toString() || '');
+    if (page <= 1) {
+      nextParams.delete('page');
+    } else {
+      nextParams.set('page', String(page));
+    }
+    const qs = nextParams.toString();
+    router.push(qs ? `/entries?${qs}` : '/entries', { scroll: false });
+  }, [router, searchParams]);
+
+  const setPageAndSlice = useCallback((page: number, nextAllEntries?: Entry[]) => {
+    const source = nextAllEntries ?? allEntries;
+    const safePage = clampPage(page, source.length);
+    setCurrentPage(safePage);
+    const startIndex = (safePage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setEntries(source.slice(startIndex, endIndex));
+  }, [allEntries, clampPage, itemsPerPage]);
 
   useEffect(() => {
     loadEntries();
@@ -53,10 +91,11 @@ export default function EntriesPage() {
             await cacheSecciones(secciones.secciones || secciones);
           }
           
-      setAllEntries(data.entries);
-      setTotalCount(data.entries.length);
-      setCurrentPage(1);
-      setEntries(data.entries.slice(0, itemsPerPage));
+          const nextAll = data.entries as Entry[];
+          setAllEntries(nextAll);
+          setTotalCount(nextAll.length);
+          const desiredPage = getDesiredPageFromUrl();
+          setPageAndSlice(desiredPage, nextAll);
           
           // Refresh stats after loading
           await refreshStats();
@@ -81,17 +120,25 @@ export default function EntriesPage() {
     const localEntries = await getEntriesLocal();
     setAllEntries(localEntries);
     setTotalCount(localEntries.length);
-    setCurrentPage(1);
-    setEntries(localEntries.slice(0, itemsPerPage));
+    const desiredPage = getDesiredPageFromUrl();
+    setPageAndSlice(desiredPage, localEntries);
   };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    const startIndex = (page - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    setEntries(allEntries.slice(startIndex, endIndex));
+    updateUrlPage(page);
+    setPageAndSlice(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // If the URL page changes (Back/Forward), reflect it in the list.
+  useEffect(() => {
+    if (isLoading) return;
+    if (!allEntries.length) return;
+    const desiredPage = getDesiredPageFromUrl();
+    if (desiredPage !== currentPage) {
+      setPageAndSlice(desiredPage);
+    }
+  }, [allEntries.length, currentPage, getDesiredPageFromUrl, isLoading, setPageAndSlice]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +177,7 @@ export default function EntriesPage() {
   const displayEntries = searchQuery.trim() ? searchResults : entries;
 
   // Helper to render sync status badge
-  const renderSyncBadge = (entry: any) => {
+  const renderSyncBadge = (entry: SyncableEntry) => {
     if (!entry.syncStatus || entry.syncStatus === 'synced') return null;
     
     if (entry.syncStatus === 'pending') {
@@ -243,6 +290,11 @@ export default function EntriesPage() {
                 onClick={() => {
                   setSearchQuery('');
                   setSearchResults([]);
+                  // Restore the page from the URL when clearing search.
+                  if (allEntries.length) {
+                    const desiredPage = getDesiredPageFromUrl();
+                    setPageAndSlice(desiredPage);
+                  }
                 }}
                 className="text-sm md:text-base px-4 md:px-6"
               >
