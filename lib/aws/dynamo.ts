@@ -53,41 +53,50 @@ export function generatePublicId(): string {
   return id;
 }
 
-// Get the latest folio number
+// Get the next available folio (max existing 6-digit folio + 1).
+// Scan must paginate: a single Scan page can omit items (1MB limit) so Math.max would be wrong.
+// ConsistentRead helps the newest entry appear immediately after create (avoids suggesting the same folio twice).
 export async function getLatestFolio(): Promise<string> {
   try {
-    // Query using GSI1 to get entries sorted by folio (descending)
-    // This is more efficient than scanning all entries
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression: 'begins_with(PK, :prefix) AND attribute_exists(folio)',
-        ExpressionAttributeValues: {
-          ':prefix': 'ENTRY#',
-        },
-        ProjectionExpression: 'folio',
-      })
-    );
+    const allFolioItems: { folio?: string }[] = [];
+    let startKey: Record<string, unknown> | undefined;
 
-    if (!result.Items || result.Items.length === 0) {
-      // No entries yet, start with 000001
+    do {
+      const result = await docClient.send(
+        new ScanCommand({
+          TableName: TABLE_NAME,
+          FilterExpression: 'begins_with(PK, :prefix) AND attribute_exists(folio)',
+          ExpressionAttributeValues: {
+            ':prefix': 'ENTRY#',
+          },
+          ProjectionExpression: 'folio',
+          ExclusiveStartKey: startKey,
+          ConsistentRead: true,
+        })
+      );
+
+      if (result.Items?.length) {
+        allFolioItems.push(...result.Items);
+      }
+      startKey = result.LastEvaluatedKey;
+    } while (startKey);
+
+    if (allFolioItems.length === 0) {
       return '000001';
     }
 
-    // Sort folios numerically to get the highest
-    const folios = result.Items.map(item => item.folio as string)
-      .filter(folio => folio && /^\d{6}$/.test(folio)); // Validate 6-digit format
+    const folios = allFolioItems
+      .map((item) => item.folio as string)
+      .filter((folio) => folio && /^\d{6}$/.test(folio));
 
     if (folios.length === 0) {
       return '000001';
     }
 
-    // Convert to numbers for sorting and get max
-    const numericFolios = folios.map(folio => parseInt(folio, 10));
+    const numericFolios = folios.map((folio) => parseInt(folio, 10));
     const maxFolio = Math.max(...numericFolios);
     const nextFolio = maxFolio + 1;
 
-    // Convert back to 6-digit format (e.g., 000001, 000002, etc.)
     return nextFolio.toString().padStart(6, '0');
   } catch (error) {
     console.error('Error getting latest folio:', error);
