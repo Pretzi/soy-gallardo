@@ -34,7 +34,7 @@ export async function GET(
 
     const imageBuffer = await generateReportImage(reporte, photoBuffer);
 
-    return new NextResponse(imageBuffer, {
+    return new NextResponse(new Uint8Array(imageBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/jpeg',

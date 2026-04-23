@@ -1,4 +1,9 @@
-import { createCanvas, loadImage, registerFont } from 'canvas';
+import {
+  createCanvas,
+  loadImage,
+  registerFont,
+  type CanvasRenderingContext2D,
+} from 'canvas';
 import sharp from 'sharp';
 import QRCode from 'qrcode';
 import { existsSync } from 'fs';
