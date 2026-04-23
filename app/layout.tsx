@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { HeaderNav } from "@/components/HeaderNav";
+import { AppHeader } from "@/components/AppHeader";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -40,32 +36,11 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
+        className={`${plusJakarta.variable} antialiased bg-gray-50`}
       >
         <ServiceWorkerRegister />
         <OfflineProvider>
-        <header className="bg-white border-b-4 border-orange-500 shadow-md">
-          <div className="container mx-auto px-4 py-3 md:py-2">
-            <div className="flex items-center justify-between gap-3 md:gap-4">
-              <div className="flex items-center gap-3 md:gap-4">
-                <img 
-                  src="/logo-2.png" 
-                  alt="Soy Gallardo Logo" 
-                  className="h-12 md:h-12 w-auto flex-shrink-0"
-                />
-                <div className="min-w-0">
-                  <h1 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 leading-tight">
-                    Soy <span className="font-extrabold text-orange-600">Gallardo</span>
-                  </h1>
-                  <p className="text-base md:text-base font-normal text-gray-700 leading-tight">
-                    y obtengo beneficios.
-                  </p>
-                </div>
-              </div>
-              <HeaderNav />
-            </div>
-          </div>
-        </header>
+        <AppHeader />
         {children}
         </OfflineProvider>
       </body>

@@ -10,8 +10,12 @@ export function HeaderNav() {
   const router = useRouter();
   const { isOnline, pendingCount } = useOffline();
 
-  // Don't show logout button on login page
-  if (pathname === '/login') {
+  // Don't show nav on login pages or public citizen report pages
+  if (
+    pathname === '/admin/login' ||
+    pathname === '/' ||
+    pathname?.startsWith('/reportar')
+  ) {
     return null;
   }
 
@@ -23,7 +27,7 @@ export function HeaderNav() {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
+      router.push('/admin/login');
       router.refresh();
     } catch (error) {
       console.error('Error logging out:', error);
@@ -44,6 +48,14 @@ export function HeaderNav() {
         )}
       </div>
 
+      {/* Reportes Link */}
+      <Link href="/reportes">
+        <Button variant="secondary" className="text-sm py-1 px-2 md:px-3">
+          <span className="hidden md:inline">Reportes</span>
+          <span className="md:hidden">📋</span>
+        </Button>
+      </Link>
+
       {/* Settings Link */}
       <Link href="/settings">
         <Button variant="secondary" className="text-sm py-1 px-2 md:px-3">
@@ -53,14 +65,14 @@ export function HeaderNav() {
       </Link>
 
       {/* Logout Button */}
-    <Button
-      onClick={handleLogout}
-      variant="secondary"
+      <Button
+        onClick={handleLogout}
+        variant="secondary"
         className="text-sm py-1 px-2 md:px-3"
-    >
+      >
         <span className="hidden md:inline">Cerrar Sesión</span>
         <span className="md:hidden">👋</span>
-    </Button>
+      </Button>
     </div>
   );
 }

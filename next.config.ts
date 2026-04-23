@@ -136,7 +136,7 @@ const nextConfig: NextConfig = {
     ],
   },
   // Externalize native modules for server-side rendering
-  serverExternalPackages: ['sharp'],
+  serverExternalPackages: ['sharp', 'canvas'],
   // Keep Turbopack config for dev mode
   turbopack: {},
 };

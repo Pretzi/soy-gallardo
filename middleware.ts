@@ -4,8 +4,32 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow access to login page and auth API
-  if (pathname === '/login' || pathname.startsWith('/api/auth/login')) {
+  // Allow access to admin login page and auth API
+  if (pathname === '/admin/login' || pathname.startsWith('/api/auth/login')) {
+    return NextResponse.next();
+  }
+
+  // Redirect old /login to /admin/login (backward compat)
+  if (pathname === '/login') {
+    return NextResponse.redirect(new URL('/admin/login', request.url));
+  }
+
+  // Allow public access to citizen report pages and public API
+  if (
+    pathname === '/' ||
+    pathname.startsWith('/reportar') ||
+    pathname === '/municipio' ||
+    pathname.startsWith('/api/reportes')
+  ) {
+    return NextResponse.next();
+  }
+
+  // /reportes pages require auth
+  if (pathname.startsWith('/reportes')) {
+    const authToken = request.cookies.get('auth-token');
+    if (!authToken || authToken.value !== 'authenticated') {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
     return NextResponse.next();
   }
 
@@ -37,8 +61,7 @@ export function middleware(request: NextRequest) {
   const authToken = request.cookies.get('auth-token');
 
   if (!authToken || authToken.value !== 'authenticated') {
-    // Redirect to login page
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL('/admin/login', request.url);
     return NextResponse.redirect(loginUrl);
   }
 
