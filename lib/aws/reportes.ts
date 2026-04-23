@@ -116,7 +116,6 @@ export async function getReporteByFolio(folio: string): Promise<Reporte | null> 
       TableName: TABLE_NAME,
       FilterExpression: 'begins_with(PK, :prefix) AND folio = :folio',
       ExpressionAttributeValues: { ':prefix': 'REPORTE#', ':folio': folio.toUpperCase() },
-      Limit: 1,
     })
   );
 

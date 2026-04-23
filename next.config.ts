@@ -105,7 +105,7 @@ const withPWA = withPWAInit({
         },
       },
       {
-        // Cache API options calls with Network First
+        // Cache API options calls with Network First (longer timeout for slow mobile / iOS)
         urlPattern: /\/api\/options\/.*/,
         handler: "NetworkFirst",
         options: {
@@ -114,7 +114,7 @@ const withPWA = withPWAInit({
             maxEntries: 50,
             maxAgeSeconds: 24 * 60 * 60, // 1 day
           },
-          networkTimeoutSeconds: 3,
+          networkTimeoutSeconds: 20,
         },
       },
     ],

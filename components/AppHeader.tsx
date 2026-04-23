@@ -10,6 +10,7 @@ export function AppHeader() {
   if (
     pathname === '/' ||
     pathname?.startsWith('/reportar') ||
+    pathname?.startsWith('/folio') ||
     pathname === '/admin/login' ||
     pathname === '/municipio'
   ) {

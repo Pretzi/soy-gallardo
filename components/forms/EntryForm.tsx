@@ -7,7 +7,26 @@ import { Autocomplete } from '@/components/ui/Autocomplete';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import type { Entry, EntryCreate } from '@/lib/validation';
-import { getCachedLocalidades, getCachedSecciones, cacheLocalidades } from '@/lib/indexeddb';
+import {
+  getCachedLocalidades,
+  getCachedSecciones,
+  cacheLocalidades,
+  cacheSecciones,
+} from '@/lib/indexeddb';
+
+function parseStringListPayload(data: unknown, key: 'localidades' | 'secciones'): string[] {
+  if (!data || typeof data !== 'object') return [];
+  const raw = (data as Record<string, unknown>)[key];
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is string => typeof item === 'string');
+}
+
+async function fetchOptionsList(url: string, key: 'localidades' | 'secciones'): Promise<string[]> {
+  const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : `HTTP ${res.status}`);
+  return parseStringListPayload(data, key);
+}
 
 interface EntryFormProps {
   initialData?: Partial<Entry>;
@@ -122,31 +141,30 @@ export function EntryForm({
   useEffect(() => {
     const loadOptions = async () => {
       if (isOnline) {
-        // Load from API when online
         try {
-          const [loc, sec] = await Promise.all([
-            fetch('/api/options/localidades').then((r) => r.json()),
-            fetch('/api/options/secciones').then((r) => r.json()),
+          const [locList, secList] = await Promise.all([
+            fetchOptionsList('/api/options/localidades', 'localidades'),
+            fetchOptionsList('/api/options/secciones', 'secciones'),
           ]);
-          setLocalidades(loc.localidades || loc);
-          setSecciones(sec.secciones || sec);
+          setLocalidades(locList);
+          setSecciones(secList);
+          if (locList.length) await cacheLocalidades(locList);
+          if (secList.length) await cacheSecciones(secList);
         } catch (error) {
           console.warn('Failed to load options from API, loading from cache:', error);
-          // Fallback to cache if API fails
           const cachedLoc = await getCachedLocalidades();
           const cachedSec = await getCachedSecciones();
-          if (cachedLoc) setLocalidades(cachedLoc);
-          if (cachedSec) setSecciones(cachedSec);
+          if (cachedLoc?.length) setLocalidades(cachedLoc);
+          if (cachedSec?.length) setSecciones(cachedSec);
         }
       } else {
-        // Load from cache when offline
         const cachedLoc = await getCachedLocalidades();
         const cachedSec = await getCachedSecciones();
-        if (cachedLoc) setLocalidades(cachedLoc);
-        if (cachedSec) setSecciones(cachedSec);
+        if (cachedLoc?.length) setLocalidades(cachedLoc);
+        if (cachedSec?.length) setSecciones(cachedSec);
       }
     };
-    
+
     loadOptions();
   }, [isOnline]);
 

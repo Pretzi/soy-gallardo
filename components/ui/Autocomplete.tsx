@@ -42,15 +42,20 @@ export function Autocomplete({
     !isAddingNew
   );
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking/tapping outside (touch + mouse for iOS)
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+    function handlePointerOutside(event: MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (wrapperRef.current && target && !wrapperRef.current.contains(target)) {
         setIsOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handlePointerOutside);
+    document.addEventListener('touchstart', handlePointerOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handlePointerOutside);
+      document.removeEventListener('touchstart', handlePointerOutside);
+    };
   }, []);
 
   // Update input value when prop value changes
@@ -58,15 +63,17 @@ export function Autocomplete({
     setInputValue(value);
   }, [value]);
 
+  const safeOptions = Array.isArray(options) ? options : [];
+
   // Filter options based on input
   useEffect(() => {
     if (!inputValue.trim()) {
-      setFilteredOptions(options);
+      setFilteredOptions(safeOptions);
       return;
     }
 
     const searchTerm = inputValue.toLowerCase();
-    const filtered = options.filter((option) => {
+    const filtered = safeOptions.filter((option) => {
       const optionLower = option.toLowerCase();
       // Extract number from format "(3914)"
       const numberMatch = option.match(/\((\d+)\)/);
@@ -77,7 +84,7 @@ export function Autocomplete({
     });
 
     setFilteredOptions(filtered);
-  }, [inputValue, options]);
+  }, [inputValue, safeOptions]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -174,13 +181,19 @@ export function Autocomplete({
         />
         
         {isOpen && filteredOptions.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 max-h-60 overflow-auto bg-white border border-gray-300 rounded-lg shadow-lg">
+          <div
+            className="absolute z-[100] w-full mt-1 max-h-60 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y bg-white border border-gray-300 rounded-lg shadow-lg [-webkit-overflow-scrolling:touch]"
+            role="listbox"
+          >
             {filteredOptions.map((option, index) => (
               <div
                 key={index}
+                role="option"
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleOptionClick(option)}
                 onMouseEnter={() => setHighlightedIndex(index)}
-                className={`px-3 py-2 cursor-pointer text-sm ${
+                className={`px-3 py-2 cursor-pointer text-sm select-none ${
                   index === highlightedIndex
                     ? 'bg-orange-100 text-orange-900'
                     : 'hover:bg-gray-100 text-gray-900'
@@ -193,11 +206,12 @@ export function Autocomplete({
         )}
 
         {showAddNew && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+          <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleAddNew}
-              className="w-full px-3 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 font-medium flex items-center gap-2"
+              className="w-full px-3 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 font-medium flex items-center gap-2 touch-manipulation"
             >
               <span aria-hidden>+</span>
               {addNewLabel ? addNewLabel.replace('{value}', inputValue.trim()) : `Agregar "${inputValue.trim()}" como nueva comunidad`}
@@ -206,10 +220,11 @@ export function Autocomplete({
         )}
 
         {isOpen && filteredOptions.length === 0 && inputValue && !showAddNew && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg px-3 py-2 text-sm text-gray-500">
+          <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg px-3 py-2 text-sm text-gray-500">
             {isAddingNew ? 'Agregando...' : 'No se encontraron resultados'}
           </div>
         )}
+
       </div>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
