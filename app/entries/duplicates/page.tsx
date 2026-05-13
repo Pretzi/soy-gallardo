@@ -68,12 +68,6 @@ export default async function EntriesDuplicatesPage() {
           <div>
             <p className="text-sm font-medium text-orange-600 uppercase tracking-wide">Calidad de datos</p>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">Duplicados y nombres parecidos</h1>
-            <p className="text-sm md:text-base text-gray-600 mt-2 max-w-3xl">
-              Se agrupan usando el mismo criterio de búsqueda que DynamoDB (índice secundario
-              NAME#…): nombre completo normalizado sin acentos y en mayúsculas. Las coincidencias
-              parecidas requieren el mismo apellido normalizado y una distancia de edición corta
-              sobre el nombre completo (posibles errores de captura).
-            </p>
           </div>
           <Link
             href="/entries"

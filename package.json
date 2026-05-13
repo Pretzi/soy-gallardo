@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx scripts/seed-dynamo.ts",
-    "backfill-public-ids": "tsx scripts/backfill-public-ids.ts"
+    "backfill-public-ids": "tsx scripts/backfill-public-ids.ts",
+    "algolia:sync": "tsx scripts/sync-algolia.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.713.0",
@@ -18,9 +19,11 @@
     "@ducanh2912/next-pwa": "^10.2.9",
     "@google/generative-ai": "^0.24.1",
     "@types/canvas-confetti": "^1.9.0",
+    "algoliasearch": "^5.52.1",
     "canvas": "^3.2.1",
     "canvas-confetti": "^1.9.4",
     "csv-parse": "^5.6.0",
+    "dotenv": "^16.6.1",
     "heic-convert": "^2.1.0",
     "idb": "^8.0.3",
     "next": "16.1.4",

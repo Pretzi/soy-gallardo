@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchEntries } from '@/lib/aws/dynamo';
+import { algoliaSearchConfigured } from '@/lib/algolia/config';
+import { searchEntriesAlgolia } from '@/lib/algolia/search';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +15,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const entries = await searchEntries(query.trim());
+    const q = query.trim();
+    let entries;
+    if (algoliaSearchConfigured()) {
+      try {
+        entries = await searchEntriesAlgolia(q);
+      } catch (algoliaErr) {
+        console.warn('Algolia search failed, using Dynamo:', algoliaErr);
+        entries = await searchEntries(q);
+      }
+    } else {
+      entries = await searchEntries(q);
+    }
 
     return NextResponse.json({ entries });
   } catch (error: any) {

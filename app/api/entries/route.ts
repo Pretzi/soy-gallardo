@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createEntry, listEntries, folioExists } from '@/lib/aws/dynamo';
+import { syncEntryToAlgolia } from '@/lib/algolia/sync-entry';
 import { entryCreateSchema } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
 
     // Create entry
     const entry = await createEntry(validatedData);
+    await syncEntryToAlgolia(entry);
 
     return NextResponse.json(entry, { status: 201 });
   } catch (error: any) {
