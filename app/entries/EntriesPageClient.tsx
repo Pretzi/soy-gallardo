@@ -27,7 +27,8 @@ export default function EntriesPageClient() {
   const [itemsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** DOM timers return `number`; `ReturnType<typeof setTimeout>` often resolves to NodeJS.Timeout under @types/node. */
+  const debounceTimerRef = useRef<number | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const SEARCH_DEBOUNCE_MS = 280;
 
