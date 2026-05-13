@@ -326,7 +326,12 @@ export default function EntriesPageClient() {
         </form>
 
         {/* Filter Buttons */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-6">
+          <Link href="/entries/duplicates" className="flex-1 md:flex-none">
+            <Button variant="secondary" className="w-full text-sm md:text-base border-amber-200 bg-amber-50 hover:bg-amber-100">
+              Duplicados y similares
+            </Button>
+          </Link>
           <Link href="/localidades" className="flex-1 md:flex-none">
             <Button variant="secondary" className="w-full text-sm md:text-base">
               Ver por Comunidades

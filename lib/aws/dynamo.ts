@@ -9,6 +9,7 @@ import {
   ScanCommand,
   BatchWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
+import type { EntryNameRow } from '../duplicate-names';
 import type { Entry, EntryCreate, EntryUpdate } from '../validation';
 import { normalizeForSearch, formatFullName } from '../validation';
 import { randomBytes } from 'crypto';
@@ -378,6 +379,60 @@ export async function listEntries(limit: number = 50, lastEvaluatedKey?: Record<
     entries,
     lastEvaluatedKey: newLastKey,
   };
+}
+
+/**
+ * Lightweight scan for duplicate / fuzzy-name tooling (fewer projected attributes).
+ */
+export async function scanEntriesForDuplicateAnalysis(): Promise<EntryNameRow[]> {
+  const rows: EntryNameRow[] = [];
+  let scanLastKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :prefix)',
+        ExpressionAttributeValues: {
+          ':prefix': 'ENTRY#',
+        },
+        ExpressionAttributeNames: {
+          '#eid': 'id',
+          '#nom': 'nombre',
+        },
+        ProjectionExpression: '#eid, #nom, segundoNombre, apellidos, folio, telefono, localidad, createdAt',
+        ExclusiveStartKey: scanLastKey,
+      })
+    );
+
+    for (const item of result.Items ?? []) {
+      const id = item.id != null ? String(item.id) : '';
+      if (!id) continue;
+      rows.push({
+        id,
+        nombre: item.nombre != null ? String(item.nombre) : '',
+        segundoNombre:
+          item.segundoNombre != null && item.segundoNombre !== ''
+            ? String(item.segundoNombre)
+            : undefined,
+        apellidos: item.apellidos != null ? String(item.apellidos) : '',
+        folio: item.folio != null ? String(item.folio) : undefined,
+        telefono:
+          item.telefono != null && item.telefono !== ''
+            ? String(item.telefono)
+            : undefined,
+        localidad:
+          item.localidad != null && item.localidad !== ''
+            ? String(item.localidad)
+            : undefined,
+        createdAt: item.createdAt != null ? String(item.createdAt) : '',
+      });
+    }
+
+    scanLastKey = result.LastEvaluatedKey;
+  } while (scanLastKey);
+
+  return rows;
 }
 
 // Search entries by folio or name
