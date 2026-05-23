@@ -1,16 +1,22 @@
 import type { Entry } from '@/lib/validation';
+import { isFolioQuery, normalizeFolioForLookup } from '@/lib/folio-search';
 import { getAlgoliaIndexName } from './config';
 import { getAlgoliaSearchClient } from './clients';
 import { algoliaHitToEntry } from './entry-record';
 
-/** Search afiliados via Algolia (typo-tolerant names and folio substring). */
+/** Search afiliados via Algolia (typo-tolerant names). Folio queries must not use this path. */
 export async function searchEntriesAlgolia(query: string, hitsPerPage = 80): Promise<Entry[]> {
+  const trimmed = query.trim();
+  if (isFolioQuery(trimmed)) {
+    throw new Error('Folio search must use exact Dynamo lookup, not Algolia');
+  }
+
   const client = getAlgoliaSearchClient();
   const indexName = getAlgoliaIndexName();
   const res = await client.searchSingleIndex<Record<string, unknown>>({
     indexName,
     searchParams: {
-      query: query.trim(),
+      query: trimmed,
       hitsPerPage,
     },
   });

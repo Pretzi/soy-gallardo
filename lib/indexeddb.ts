@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { isFolioQuery, normalizeFolioForLookup } from './folio-search';
 import type { Entry, EntryCreate } from './validation';
 
 // Database schema
@@ -119,7 +120,17 @@ export async function deleteEntryLocal(id: string): Promise<void> {
 export async function searchEntriesLocal(query: string): Promise<(Entry & { syncStatus: 'synced' | 'pending' | 'failed' })[]> {
   const db = await getDB();
   const entries = await db.getAll('entries');
-  const normalizedQuery = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const trimmed = query.trim();
+
+  // Folio: exact match only (supports "1" → "000001")
+  if (isFolioQuery(trimmed)) {
+    const folio = normalizeFolioForLookup(trimmed);
+    const exact = entries.filter((entry) => entry.folio === folio);
+    exact.sort((a, b) => parseInt(b.folio || '0', 10) - parseInt(a.folio || '0', 10));
+    return exact;
+  }
+
+  const normalizedQuery = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   const filtered = entries.filter(entry => {
     const searchText = `${entry.folio || ''} ${entry.nombre} ${entry.segundoNombre || ''} ${entry.apellidos}`;

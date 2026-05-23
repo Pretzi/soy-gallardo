@@ -10,6 +10,8 @@ import {
   BatchWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { EntryNameRow } from '../duplicate-names';
+import { isFolioQuery, normalizeFolioForLookup } from '../folio-search';
+import { normalizeLocalidadForLookup } from '../localidad-search';
 import type { Entry, EntryCreate, EntryUpdate } from '../validation';
 import { normalizeForSearch, formatFullName } from '../validation';
 import { randomBytes } from 'crypto';
@@ -435,31 +437,20 @@ export async function scanEntriesForDuplicateAnalysis(): Promise<EntryNameRow[]>
   return rows;
 }
 
-// Search entries by folio or name
+// Search entries by folio (exact) or name (substring)
 export async function searchEntries(query: string): Promise<Entry[]> {
-  // Try folio search first (exact match)
-  const folioResult = await docClient.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :folio',
-      ExpressionAttributeValues: {
-        ':folio': `FOLIO#${query}`,
-      },
-    })
-  );
+  const trimmed = query.trim();
 
-  if (folioResult.Items && folioResult.Items.length > 0) {
-    const entries = folioResult.Items.map((item) => {
-      const { PK, SK, GSI1PK, GSI2PK, ...entry } = item;
-      return entry as Entry;
-    });
-    sortByFolioDescending(entries);
-    return entries;
+  // Folio: exact match only — no fuzzy / name fallback
+  if (isFolioQuery(trimmed)) {
+    const entry = await getEntryByFolio(normalizeFolioForLookup(trimmed));
+    if (!entry) return [];
+    sortByFolioDescending([entry]);
+    return [entry];
   }
 
-  // If no folio match, do a scan with name filter (normalize to match stored GSI2PK format)
-  const normalizedQuery = normalizeForSearch(query).toUpperCase();
+  // Name search (normalize to match stored GSI2PK format)
+  const normalizedQuery = normalizeForSearch(trimmed).toUpperCase();
   const nameResult = await docClient.send(
     new ScanCommand({
       TableName: TABLE_NAME,
@@ -475,7 +466,7 @@ export async function searchEntries(query: string): Promise<Entry[]> {
     const { PK, SK, GSI1PK, GSI2PK, ...entry } = item;
     return entry as Entry;
   });
-  
+
   sortByFolioDescending(entries);
   return entries;
 }
@@ -529,7 +520,7 @@ export async function batchWriteEntries(entries: EntryCreate[]): Promise<void> {
   }
 }
 
-// Get entries by localidad with pagination
+// Get entries by localidad with pagination (full table scan pages — no Scan Limit)
 export async function getEntriesByLocalidad(
   localidad: string,
   limit: number = 20,
@@ -539,34 +530,44 @@ export async function getEntriesByLocalidad(
   lastEvaluatedKey?: Record<string, any>;
   count: number;
 }> {
-  const result = await docClient.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'begins_with(PK, :prefix) AND localidad = :localidad',
-      ExpressionAttributeValues: {
-        ':prefix': 'ENTRY#',
-        ':localidad': localidad,
-      },
-      Limit: limit,
-      ExclusiveStartKey: lastEvaluatedKey,
-    })
-  );
+  const normalized = normalizeLocalidadForLookup(localidad);
+  const allEntries: Entry[] = [];
+  let scanLastKey: Record<string, any> | undefined = lastEvaluatedKey;
 
-  const entries: Entry[] = (result.Items || []).map((item) => {
-    const { PK, SK, GSI1PK, GSI2PK, GSI1SK, GSI2SK, ...entry } = item;
-    return entry as Entry;
-  });
+  do {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :prefix) AND localidad = :localidad',
+        ExpressionAttributeValues: {
+          ':prefix': 'ENTRY#',
+          ':localidad': normalized,
+        },
+        ExclusiveStartKey: scanLastKey,
+      })
+    );
 
-  sortByFolioDescending(entries);
+    for (const item of result.Items ?? []) {
+      const { PK, SK, GSI1PK, GSI2PK, GSI1SK, GSI2SK, ...entry } = item;
+      allEntries.push(entry as Entry);
+      if (limit > 0 && allEntries.length >= limit) break;
+    }
+
+    scanLastKey = result.LastEvaluatedKey;
+    if (limit > 0 && allEntries.length >= limit) break;
+  } while (scanLastKey);
+
+  sortByFolioDescending(allEntries);
+  const entries = limit > 0 ? allEntries.slice(0, limit) : allEntries;
 
   return {
     entries,
-    lastEvaluatedKey: result.LastEvaluatedKey,
-    count: result.Count || 0,
+    lastEvaluatedKey: scanLastKey,
+    count: entries.length,
   };
 }
 
-// Get entries by sección electoral with pagination
+// Get entries by sección electoral with pagination (full scan pages — no Scan Limit)
 export async function getEntriesBySeccion(
   seccion: string,
   limit: number = 20,
@@ -576,65 +577,93 @@ export async function getEntriesBySeccion(
   lastEvaluatedKey?: Record<string, any>;
   count: number;
 }> {
-  const result = await docClient.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'begins_with(PK, :prefix) AND seccionElectoral = :seccion',
-      ExpressionAttributeValues: {
-        ':prefix': 'ENTRY#',
-        ':seccion': seccion,
-      },
-      Limit: limit,
-      ExclusiveStartKey: lastEvaluatedKey,
-    })
-  );
+  const allEntries: Entry[] = [];
+  let scanLastKey: Record<string, any> | undefined = lastEvaluatedKey;
 
-  const entries: Entry[] = (result.Items || []).map((item) => {
-    const { PK, SK, GSI1PK, GSI2PK, GSI1SK, GSI2SK, ...entry } = item;
-    return entry as Entry;
-  });
+  do {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :prefix) AND seccionElectoral = :seccion',
+        ExpressionAttributeValues: {
+          ':prefix': 'ENTRY#',
+          ':seccion': seccion,
+        },
+        ExclusiveStartKey: scanLastKey,
+      })
+    );
 
-  sortByFolioDescending(entries);
+    for (const item of result.Items ?? []) {
+      const { PK, SK, GSI1PK, GSI2PK, GSI1SK, GSI2SK, ...entry } = item;
+      allEntries.push(entry as Entry);
+      if (limit > 0 && allEntries.length >= limit) break;
+    }
+
+    scanLastKey = result.LastEvaluatedKey;
+    if (limit > 0 && allEntries.length >= limit) break;
+  } while (scanLastKey);
+
+  sortByFolioDescending(allEntries);
+  const entries = limit > 0 ? allEntries.slice(0, limit) : allEntries;
 
   return {
     entries,
-    lastEvaluatedKey: result.LastEvaluatedKey,
-    count: result.Count || 0,
+    lastEvaluatedKey: scanLastKey,
+    count: entries.length,
   };
 }
 
 // Get total count by localidad
 export async function getCountByLocalidad(localidad: string): Promise<number> {
-  const result = await docClient.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'begins_with(PK, :prefix) AND localidad = :localidad',
-      ExpressionAttributeValues: {
-        ':prefix': 'ENTRY#',
-        ':localidad': localidad,
-      },
-      Select: 'COUNT',
-    })
-  );
+  const normalized = normalizeLocalidadForLookup(localidad);
+  let total = 0;
+  let scanLastKey: Record<string, any> | undefined;
 
-  return result.Count || 0;
+  do {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :prefix) AND localidad = :localidad',
+        ExpressionAttributeValues: {
+          ':prefix': 'ENTRY#',
+          ':localidad': normalized,
+        },
+        Select: 'COUNT',
+        ExclusiveStartKey: scanLastKey,
+      })
+    );
+
+    total += result.Count ?? 0;
+    scanLastKey = result.LastEvaluatedKey;
+  } while (scanLastKey);
+
+  return total;
 }
 
 // Get total count by sección
 export async function getCountBySeccion(seccion: string): Promise<number> {
-  const result = await docClient.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'begins_with(PK, :prefix) AND seccionElectoral = :seccion',
-      ExpressionAttributeValues: {
-        ':prefix': 'ENTRY#',
-        ':seccion': seccion,
-      },
-      Select: 'COUNT',
-    })
-  );
+  let total = 0;
+  let scanLastKey: Record<string, any> | undefined;
 
-  return result.Count || 0;
+  do {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :prefix) AND seccionElectoral = :seccion',
+        ExpressionAttributeValues: {
+          ':prefix': 'ENTRY#',
+          ':seccion': seccion,
+        },
+        Select: 'COUNT',
+        ExclusiveStartKey: scanLastKey,
+      })
+    );
+
+    total += result.Count ?? 0;
+    scanLastKey = result.LastEvaluatedKey;
+  } while (scanLastKey);
+
+  return total;
 }
 
 // ========== CUSTOM LOCALIDADES (COMUNIDADES) ==========

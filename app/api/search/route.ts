@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchEntries } from '@/lib/aws/dynamo';
+import { getEntryByFolio, searchEntries } from '@/lib/aws/dynamo';
 import { algoliaSearchConfigured } from '@/lib/algolia/config';
 import { searchEntriesAlgolia } from '@/lib/algolia/search';
+import { isFolioQuery, normalizeFolioForLookup } from '@/lib/folio-search';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,12 @@ export async function GET(request: NextRequest) {
 
     const q = query.trim();
     let entries;
-    if (algoliaSearchConfigured()) {
+
+    // Folio lookups are always exact (Dynamo GSI1) — never Algolia fuzzy
+    if (isFolioQuery(q)) {
+      const entry = await getEntryByFolio(normalizeFolioForLookup(q));
+      entries = entry ? [entry] : [];
+    } else if (algoliaSearchConfigured()) {
       try {
         entries = await searchEntriesAlgolia(q);
       } catch (algoliaErr) {

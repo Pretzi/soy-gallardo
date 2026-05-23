@@ -55,7 +55,7 @@ export default function LocalidadesPage() {
         try {
           const params = new URLSearchParams({
             localidad: selectedLocalidad,
-            limit: '1000', // Load all entries
+            limit: '0', // 0 = fetch all matches for this comunidad
           });
 
           const response = await fetch(`/api/localidades?${params.toString()}`);
