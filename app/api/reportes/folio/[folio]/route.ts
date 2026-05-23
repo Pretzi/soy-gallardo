@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getReporteByFolio } from '@/lib/aws/reportes';
-import { REPORT_TYPES } from '@/lib/report-types';
+import { getReportClassification } from '@/lib/report-types';
 
 export async function GET(
   _request: NextRequest,
@@ -14,15 +14,18 @@ export async function GET(
       return NextResponse.json({ error: 'Folio no encontrado' }, { status: 404 });
     }
 
-    const tipo = REPORT_TYPES.find((t) => t.id === reporte.tipo);
+    const classification = getReportClassification(reporte);
 
-    // Return only public-safe fields
     return NextResponse.json({
       folio: reporte.folio,
       id: reporte.id,
-      tipo: reporte.tipo,
-      tipoLabel: tipo?.label || reporte.tipo,
-      tipoEmoji: tipo?.emoji || '📋',
+      categoria: reporte.categoria || null,
+      subcategoria: reporte.subcategoria || null,
+      tipo: reporte.tipo || null,
+      tipoLabel: classification.displayLabel,
+      tipoEmoji: classification.emoji,
+      categoriaLabel: classification.categoryLabel,
+      subcategoriaLabel: classification.subcategoryLabel,
       estado: reporte.estado,
       calle: reporte.calle,
       colonia: reporte.colonia || null,

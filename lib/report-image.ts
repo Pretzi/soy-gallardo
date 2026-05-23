@@ -1,21 +1,17 @@
-import {
-  createCanvas,
-  loadImage,
-  registerFont,
-  type CanvasRenderingContext2D,
-} from 'canvas';
+import type { CanvasRenderingContext2D } from 'canvas';
 import sharp from 'sharp';
 import QRCode from 'qrcode';
 import { existsSync } from 'fs';
 import path, { resolve } from 'path';
 import type { Reporte } from './aws/reportes';
-import { REPORT_TYPES } from './report-types';
+import { getReportClassification } from './report-types';
+import { loadCanvas } from './load-canvas';
 
 const SIZE = 1080;
 
 let fontsRegistered = false;
 
-function ensureFonts() {
+function ensureFonts(registerFont: (path: string, options: { family: string; weight?: string }) => void) {
   if (fontsRegistered) return;
   fontsRegistered = true;
   const variants: { file: string; weight: string }[] = [
@@ -59,17 +55,19 @@ function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: num
 }
 
 export async function generateReportImage(reporte: Reporte, photoBuffer?: Buffer): Promise<Buffer> {
-  ensureFonts();
+  const { createCanvas, loadImage, registerFont } = await loadCanvas();
+  ensureFonts(registerFont);
 
   const canvas = createCanvas(SIZE, SIZE);
   const ctx = canvas.getContext('2d');
 
-  const reportType = REPORT_TYPES.find((t) => t.id === reporte.tipo);
-  const typeLabel  = reportType?.label || reporte.tipo;
+  const classification = getReportClassification(reporte);
+  const typeLabel  = classification.displayLabel;
 
   // ── Background ───────────────────────────────────────────────────
   if (photoBuffer) {
     const resized = await sharp(photoBuffer)
+      .rotate() // apply EXIF orientation and strip metadata
       .resize(SIZE, SIZE, { fit: 'cover', position: 'center' })
       .jpeg({ quality: 90 })
       .toBuffer();

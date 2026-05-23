@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getReportType } from '@/lib/report-types';
+import { getReportCategory, getReportSubcategory } from '@/lib/report-types';
 import { notFound } from 'next/navigation';
 import { Autocomplete } from '@/components/ui/Autocomplete';
 import dynamic from 'next/dynamic';
@@ -30,10 +30,12 @@ type FormData = {
   email: string;
 };
 
-export default function ReportarPage() {
+export default function ReportarFormPage() {
   const params = useParams();
-  const tipo = params.tipo as string;
-  const reportType = getReportType(tipo);
+  const categoria = params.categoria as string;
+  const subcategoria = params.subcategoria as string;
+  const category = getReportCategory(categoria);
+  const subcategory = getReportSubcategory(categoria, subcategoria);
   const router = useRouter();
 
   const [step, setStep] = useState(0);
@@ -52,7 +54,7 @@ export default function ReportarPage() {
   const descRef = useRef<HTMLTextAreaElement>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
 
-  if (!reportType) notFound();
+  if (!category || !subcategory) notFound();
 
   useEffect(() => {
     fetch('/api/options/localidades')
@@ -63,7 +65,7 @@ export default function ReportarPage() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (step === 0) calleRef.current?.focus();
+      if (step === 1) calleRef.current?.focus();
       if (step === 2) descRef.current?.focus();
       if (step === 4) nombreRef.current?.focus();
     }, 50);
@@ -75,7 +77,6 @@ export default function ReportarPage() {
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    // Revoke any existing preview before replacing
     previews.forEach((url) => URL.revokeObjectURL(url));
     const file = files[0];
     setForm((p) => ({ ...p, fotos: [file] }));
@@ -89,7 +90,8 @@ export default function ReportarPage() {
   };
 
   const canNext = () => {
-    if (step === 0) return form.calle.trim().length > 0;
+    if (step === 0) return form.coords !== null;
+    if (step === 1) return form.calle.trim().length > 0;
     if (step === 3) return form.fotos.length > 0;
     if (step === 4) return form.nombre.trim().length > 0;
     return true;
@@ -103,7 +105,8 @@ export default function ReportarPage() {
     setError('');
     try {
       const fd = new FormData();
-      fd.append('tipo', tipo);
+      fd.append('categoria', categoria);
+      fd.append('subcategoria', subcategoria);
       fd.append('descripcion', form.descripcion);
       fd.append('nombre', form.nombre);
       fd.append('telefono', form.telefono);
@@ -132,13 +135,10 @@ export default function ReportarPage() {
   };
 
   const progress = (step / TOTAL_STEPS) * 100;
-
   const inputClass = 'mt-1.5 w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-
-      {/* Progress bar */}
       <div className="h-1 bg-gray-200 fixed top-0 left-0 right-0 z-20">
         <div
           className="h-full bg-orange-500 transition-all duration-500 ease-out"
@@ -146,10 +146,9 @@ export default function ReportarPage() {
         />
       </div>
 
-      {/* Top bar */}
       <div className="flex items-center justify-between px-5 pt-7 pb-4 bg-gray-50 sticky top-1 z-10">
         <button
-          onClick={step === 0 ? () => router.push('/reportar') : back}
+          onClick={step === 0 ? () => router.push(`/reportar/${categoria}`) : back}
           className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-500 hover:border-orange-300 hover:text-orange-500 transition-all"
           aria-label="Atrás"
         >
@@ -158,14 +157,17 @@ export default function ReportarPage() {
           </svg>
         </button>
 
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{reportType.emoji}</span>
-          <p className="text-xs font-bold text-gray-700">{reportType.label}</p>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-lg flex-shrink-0">{subcategory.emoji}</span>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-gray-700 truncate">{subcategory.label}</p>
+            <p className="text-[10px] text-gray-400 truncate">{category.label}</p>
+          </div>
         </div>
 
         <Link
           href="/"
-          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-all flex-shrink-0"
           aria-label="Cancelar"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -174,17 +176,32 @@ export default function ReportarPage() {
         </Link>
       </div>
 
-      {/* Step content */}
       <div className="flex-1 flex flex-col pt-4 pb-8">
-        <div className={step === 1 ? 'w-full px-4 flex flex-col flex-1' : 'w-full md:max-w-md md:mx-auto px-5'}>
+        <div className={step === 0 ? 'w-full px-4 flex flex-col flex-1' : 'w-full md:max-w-md md:mx-auto px-5'}>
 
-          {/* Step 0 — Location */}
           {step === 0 && (
+            <div className="flex flex-col flex-1 gap-4">
+              <div>
+                <p className="text-lg font-bold text-orange-500 mb-0.5">Ubicación en mapa</p>
+                <p className="text-sm text-gray-400">
+                  Permite el acceso a tu ubicación o toca el mapa para colocar el pin del problema.
+                </p>
+              </div>
+              <MapPinPicker
+                value={form.coords}
+                onChange={(coords) => setForm((p) => ({ ...p, coords }))}
+                height="calc(100svh - 280px)"
+                autoLocate
+              />
+            </div>
+          )}
+
+          {step === 1 && (
             <div className="space-y-6">
               <div>
-                <p className="text-lg font-bold text-orange-500 mb-1">Ubicación</p>
+                <p className="text-lg font-bold text-orange-500 mb-1">Dirección</p>
                 <h2 className="text-2xl font-extrabold text-gray-900 leading-tight">¿En qué calle ocurre?</h2>
-                <p className="text-sm text-gray-400 mt-1">Indica la calle, localidad y una referencia opcional.</p>
+                <p className="text-sm text-gray-400 mt-1">Confirma o completa la dirección del reporte.</p>
               </div>
               <div className="space-y-4">
                 <div>
@@ -232,22 +249,6 @@ export default function ReportarPage() {
             </div>
           )}
 
-          {/* Step 1 — Map pin */}
-          {step === 1 && (
-            <div className="flex flex-col flex-1 gap-4">
-              <div>
-                <p className="text-lg font-bold text-orange-500 mb-0.5">Ubicación en mapa</p>
-                <p className="text-sm text-gray-400">Toca el mapa para colocar un pin. Puedes arrastrarlo para ajustar.</p>
-              </div>
-              <MapPinPicker
-                value={form.coords}
-                onChange={(coords) => setForm((p) => ({ ...p, coords }))}
-                height="calc(100svh - 280px)"
-              />
-            </div>
-          )}
-
-          {/* Step 2 — Description */}
           {step === 2 && (
             <div className="space-y-6">
               <div>
@@ -269,7 +270,6 @@ export default function ReportarPage() {
             </div>
           )}
 
-          {/* Step 3 — Photo (required, 1 only) */}
           {step === 3 && (
             <div className="space-y-6">
               <div>
@@ -312,7 +312,6 @@ export default function ReportarPage() {
             </div>
           )}
 
-          {/* Step 4 — Contact */}
           {step === 4 && (
             <div className="space-y-6">
               <div>
@@ -340,7 +339,6 @@ export default function ReportarPage() {
             </div>
           )}
 
-          {/* Step 5 — Confirm */}
           {step === 5 && (
             <div className="space-y-6">
               <div>
@@ -350,7 +348,8 @@ export default function ReportarPage() {
               </div>
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {[
-                  { label: 'Problema', value: reportType.label },
+                  { label: 'Categoría', value: category.label },
+                  { label: 'Subcategoría', value: subcategory.label },
                   { label: 'Calle', value: form.calle },
                   form.colonia ? { label: 'Colonia', value: form.colonia } : null,
                   form.localidad ? { label: 'Localidad', value: form.localidad } : null,
@@ -373,7 +372,6 @@ export default function ReportarPage() {
             </div>
           )}
 
-          {/* CTA */}
           <div className="mt-8">
             {step === 5 ? (
               <button type="button" onClick={handleSubmit} disabled={isSubmitting}

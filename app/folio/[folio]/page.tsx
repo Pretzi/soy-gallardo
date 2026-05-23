@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getReporteByFolio } from '@/lib/aws/reportes';
-import { REPORT_TYPES } from '@/lib/report-types';
+import { getReportClassification } from '@/lib/report-types';
 
 const STATUS_LABEL: Record<string, string> = {
   pendiente: 'Pendiente',
@@ -35,7 +35,7 @@ export default async function FolioPage({
 
   if (!reporte) notFound();
 
-  const tipo = REPORT_TYPES.find((t) => t.id === reporte.tipo);
+  const classification = getReportClassification(reporte);
   const isCancelled = reporte.estado === 'cancelado';
   const currentStep = STEPS.indexOf(reporte.estado as (typeof STEPS)[number]);
 
@@ -79,10 +79,10 @@ export default async function FolioPage({
             {/* Type + status */}
             <div className="flex items-start justify-between gap-3 mb-5">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">{tipo?.emoji || '📋'}</span>
+                <span className="text-3xl">{classification.emoji}</span>
                 <div>
                   <p className="text-sm text-gray-500 font-medium">
-                    {tipo?.label || reporte.tipo}
+                    {classification.displayLabel}
                   </p>
                   <p className="text-xs font-mono text-gray-400 mt-0.5">{reporte.folio}</p>
                 </div>

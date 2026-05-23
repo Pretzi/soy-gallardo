@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { REPORT_TYPES } from '@/lib/report-types';
+import { getReportClassification } from '@/lib/report-types';
 import type { Reporte, ReporteEstado } from '@/lib/aws/reportes';
 
 const STATUS_OPTIONS: { value: ReporteEstado; label: string }[] = [
@@ -82,7 +82,7 @@ export default function ReporteDetailPage() {
 
   if (!reporte) return null;
 
-  const rt = REPORT_TYPES.find((t) => t.id === reporte.tipo);
+  const classification = getReportClassification(reporte);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,8 +99,13 @@ export default function ReporteDetailPage() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl">{rt?.emoji || '📋'}</span>
-                <h1 className="text-xl font-black text-gray-900">{rt?.label || reporte.tipo}</h1>
+                <span className="text-2xl">{classification.emoji}</span>
+                <div>
+                  <h1 className="text-xl font-black text-gray-900">{classification.categoryLabel}</h1>
+                  {classification.subcategoryLabel && (
+                    <p className="text-sm text-gray-500">{classification.subcategoryLabel}</p>
+                  )}
+                </div>
               </div>
               <p className="font-mono text-sm font-bold text-gray-500">{reporte.folio}</p>
             </div>

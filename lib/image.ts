@@ -1,15 +1,15 @@
-import { createCanvas, loadImage, registerFont } from 'canvas';
 import type { Entry } from './validation';
 import { formatFullName } from './validation';
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import sharp from 'sharp';
+import { loadCanvas } from './load-canvas';
 
 // Font registration cache to avoid re-registering on every call
 let fontRegistered = false;
 const FONT_FAMILY = 'Arial';
 
-function registerArialFont() {
+function registerArialFont(registerFont: (path: string, options: { family: string }) => void) {
   if (fontRegistered) return true;
   
   // Try multiple paths to ensure font works in different environments
@@ -44,8 +44,8 @@ const IMAGE_HEIGHT = 1000;
 const SCALE = 4; // Scale factor from PDF points to pixels
 
 export async function generateEntryImage(entry: Entry, selfieBuffer?: Buffer): Promise<Buffer> {
-  // Register font at function start (more reliable in serverless)
-  registerArialFont();
+  const { createCanvas, loadImage, registerFont } = await loadCanvas();
+  registerArialFont(registerFont);
   
   const canvas = createCanvas(IMAGE_WIDTH, IMAGE_HEIGHT);
   const ctx = canvas.getContext('2d');

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { REPORT_TYPES } from '@/lib/report-types';
+import { getReportClassification } from '@/lib/report-types';
 import type { Reporte, ReporteEstado } from '@/lib/aws/reportes';
 
 const STATUS_TABS: { value: string; label: string }[] = [
@@ -90,7 +90,7 @@ export default function ReportesPage() {
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Folio</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Tipo</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Categoría</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">Ciudadano</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden lg:table-cell">Fecha</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Estado</th>
@@ -99,7 +99,7 @@ export default function ReportesPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {reportes.map((r) => {
-                  const rt = REPORT_TYPES.find((t) => t.id === r.tipo);
+                  const classification = getReportClassification(r);
                   return (
                     <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3">
@@ -107,8 +107,13 @@ export default function ReportesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">{rt?.emoji || '📋'}</span>
-                          <span className="text-sm text-gray-700 hidden sm:inline">{rt?.label || r.tipo}</span>
+                          <span className="text-lg">{classification.emoji}</span>
+                          <div className="min-w-0">
+                            <span className="text-sm text-gray-700 hidden sm:block truncate">{classification.categoryLabel}</span>
+                            {classification.subcategoryLabel && (
+                              <span className="text-xs text-gray-400 hidden sm:block truncate">{classification.subcategoryLabel}</span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">

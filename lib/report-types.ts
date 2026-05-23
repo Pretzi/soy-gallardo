@@ -1,16 +1,255 @@
+export type ReportSubcategory = {
+  id: string;
+  label: string;
+  emoji: string;
+};
+
+export type ReportCategory = {
+  id: string;
+  label: string;
+  emoji: string;
+  subcategories: ReportSubcategory[];
+};
+
+/** @deprecated Legacy report types — kept for older reportes stored with `tipo` only */
 export type ReportType = {
   id: string;
   label: string;
   description: string;
-  color: string;       // Tailwind color name e.g. 'red'
-  bgColor: string;     // e.g. 'bg-red-100'
-  textColor: string;   // e.g. 'text-red-700'
-  borderColor: string; // e.g. 'border-red-200'
-  accentColor: string; // e.g. 'bg-red-500'
+  color: string;
+  bgColor: string;
+  textColor: string;
+  borderColor: string;
+  accentColor: string;
   emoji: string;
   imagePrompt: string;
 };
 
+function slugify(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+type SubcategoryEntry = [label: string, emoji: string];
+
+function buildSubcategories(entries: SubcategoryEntry[]): ReportSubcategory[] {
+  return entries.map(([label, emoji]) => ({ id: slugify(label), label, emoji }));
+}
+
+function buildCategory(
+  label: string,
+  emoji: string,
+  subcategories: SubcategoryEntry[]
+): ReportCategory {
+  return {
+    id: slugify(label),
+    label,
+    emoji,
+    subcategories: buildSubcategories(subcategories),
+  };
+}
+
+const CATEGORY_DATA: [string, string, SubcategoryEntry[]][] = [
+  ['Alcantarilla', '🕳️', [
+    ['Alcantarilla sin tapa', '🚫'],
+    ['Tapa suelta o quebrada', '🔧'],
+    ['Desazolves pluviales', '🌧️'],
+    ['Desnivel', '📐'],
+    ['Limpieza de rejilla', '🧹'],
+    ['Otro', '📋'],
+  ]],
+  ['Alumbrado', '💡', [
+    ['Luminaria apagada', '🌑'],
+    ['Luminaria prendida de día', '☀️'],
+    ['Luminaria dañada o en mal estado', '💥'],
+    ['Luminaria intermitente', '⚡'],
+    ['Luminaria Nueva', '✨'],
+    ['Cables expuestos', '🔌'],
+    ['Otro', '📋'],
+  ]],
+  ['Animales', '🐕', [
+    ['Animal muerto en vía pública', '💀'],
+    ['Agresión', '😠'],
+    ['Maltrato', '🚫'],
+    ['Perro callejero', '🐕'],
+    ['Otro', '📋'],
+  ]],
+  ['Baches', '🕳️', [
+    ['Bache', '🕳️'],
+    ['Hundimiento', '⬇️'],
+    ['Pavimento agrietado', '〰️'],
+    ['Socavón', '🕳️'],
+    ['Reparación total de carpeta asfáltica', '🛣️'],
+    ['Otro', '📋'],
+  ]],
+  ['Deshierbe', '🌿', [
+    ['Camellones', '🌿'],
+    ['Plaza pública', '🏛️'],
+    ['Banqueta', '🚶'],
+    ['Lotes baldíos', '🏚️'],
+    ['Arroyo o talud', '🏞️'],
+    ['Canchas Deportivas', '⚽'],
+    ['Otro', '📋'],
+  ]],
+  ['Escombro', '🧱', [
+    ['Plaza publica', '🏛️'],
+    ['Camellones', '🌿'],
+    ['Escuelas públicas', '🏫'],
+    ['Vía pública', '🛣️'],
+    ['Casa habitación', '🏠'],
+    ['Otro', '📋'],
+  ]],
+  ['Falta de Energía Eléctrica CFE', '⚡', [
+    ['Colonia CFE', '🏘️'],
+    ['Otro', '📋'],
+  ]],
+  ['Fuga de Agua', '💧', [
+    ['En vía pública', '🛣️'],
+    ['Plaza pública', '🏛️'],
+    ['Aguas Negras/Drenaje', '🚰'],
+    ['Otro', '📋'],
+  ]],
+  ['Fumigación Mosquito', '🦟', [
+    ['Lote baldío', '🏚️'],
+    ['En tu colonia', '🏘️'],
+    ['Plaza pública', '🏛️'],
+    ['Escuela pública', '🏫'],
+    ['Otro', '📋'],
+  ]],
+  ['Lote baldío', '🏚️', [
+    ['Deshierbe', '🌿'],
+    ['Escombro basura', '🧱'],
+    ['Fumigación Mosquito', '🦟'],
+    ['Animales muertos', '💀'],
+    ['Otro', '📋'],
+  ]],
+  ['Plaza pública', '🏛️', [
+    ['Mantenimiento general', '🔧'],
+    ['Deshierbe', '🌿'],
+    ['Fumigación Mosquito', '🦟'],
+    ['Recolección de basura', '🗑️'],
+    ['Pintura', '🎨'],
+    ['Reparación', '🛠️'],
+    ['Otro', '📋'],
+  ]],
+  ['Poste dañado', '📡', [
+    ['Poste caído', '📉'],
+    ['Poste en riesgo', '⚠️'],
+    ['Cables caídos', '🔌'],
+    ['Otro', '📋'],
+  ]],
+  ['Recolección de basura', '🗑️', [
+    ['No acudió unidad', '🚛'],
+    ['Basura en plaza pública', '🏛️'],
+    ['Árboles caídos en vía pública', '🌳'],
+    ['Descacharrización', '🛋️'],
+    ['Llantas', '🛞'],
+    ['Otro', '📋'],
+  ]],
+  ['Reductores de velocidad', '🐢', [
+    ['Instalación', '➕'],
+    ['Reductor dañado', '💥'],
+    ['Sin pintura', '🎨'],
+    ['Otro', '📋'],
+  ]],
+  ['Señalamientos', '🚦', [
+    ['Semáforo descompuesto', '🚦'],
+    ['Señalamiento dañado', '🪧'],
+    ['Falta de señalamiento', '❓'],
+    ['Delimitación de carriles', '🛣️'],
+    ['Pintura en reductores de velocidad', '🎨'],
+    ['Nomenclatura Mantenimiento', '🔤'],
+    ['Otro', '📋'],
+  ]],
+  ['Transporte público', '🚌', [
+    ['Mal servicio', '😤'],
+    ['Falta de parabus', '🚏'],
+    ['Mantenimiento Parabus', '🔧'],
+    ['Otro', '📋'],
+  ]],
+  ['Vehículo abandonado', '🚗', [
+    ['Vehículo abandonado', '🚗'],
+    ['Otro', '📋'],
+  ]],
+  ['Comercio', '🏪', [
+    ['Venta de Alcohol Fuera de Horario', '🍺'],
+    ['Verificación de Uso de Suelo', '📋'],
+    ['Obstrucción de la Vía Pública', '🚧'],
+    ['Informal', '🛒'],
+    ['Ruido Excesivo', '🔊'],
+    ['Otro', '📋'],
+  ]],
+  ['Seguridad', '🚨', [
+    ['Presencia Policial', '👮'],
+    ['Agente de Transito', '🚔'],
+    ['Carro en Lugar Prohibido', '🚫'],
+    ['Otro', '📋'],
+  ]],
+  ['Ecología', '🌱', [
+    ['Denuncia de Escombro', '🧱'],
+    ['Olores', '👃'],
+    ['Ruido de Empresas o Talleres', '🔊'],
+    ['Otro', '📋'],
+  ]],
+  ['Banqueta Obstruida', '🚧', [
+    ['Estructura', '🏗️'],
+    ['Botes', '🪣'],
+    ['Jardineras', '🪴'],
+    ['Otros', '📋'],
+  ]],
+  ['Retiro de Ramas', '🌳', [
+    ['En vía pública', '🛣️'],
+    ['En plaza pública', '🏛️'],
+    ['En Domicilio', '🏠'],
+    ['Otro', '📋'],
+  ]],
+  ['Barrido Manual', '🧹', [
+    ['Plaza pública', '🏛️'],
+    ['Avenidas y Camellones', '🛣️'],
+    ['Otro', '📋'],
+  ]],
+  ['Salubridad', '🏥', [
+    ['Domicilio Insalubre', '🏠'],
+    ['Otro', '📋'],
+  ]],
+  ['Obras Inconclusas', '🚧', [
+    ['Pluvial', '🌧️'],
+    ['Bache', '🕳️'],
+    ['Carretera, Avenida y Calle', '🛣️'],
+    ['Otro', '📋'],
+  ]],
+  ['Construcción', '🏗️', [
+    ['Verificación de construcción', '🔍'],
+    ['Otro', '📋'],
+  ]],
+  ['Vecinos ruidosos', '🔊', [
+    ['Música alta', '🎵'],
+    ['Fiestas o reuniones ruidosas', '🎉'],
+    ['Gritos o disturbios', '📢'],
+    ['Ruido de mascotas', '🐾'],
+    ['Ruido constante en domicilio', '🏠'],
+    ['Otro', '📋'],
+  ]],
+  ['Otro', '📋', [
+    ['Reporte no clasificado', '❓'],
+    ['Solicitud ciudadana general', '📝'],
+    ['Daño en vía pública', '🛣️'],
+    ['Riesgo para peatones o vehículos', '⚠️'],
+    ['Problema recurrente en la colonia', '🔁'],
+    ['Atención urgente', '🆘'],
+    ['Otro', '📋'],
+  ]],
+];
+
+export const REPORT_CATEGORIES: ReportCategory[] = CATEGORY_DATA.map(([label, emoji, subs]) =>
+  buildCategory(label, emoji, subs)
+);
+
+/** @deprecated Use REPORT_CATEGORIES — kept for legacy reportes */
 export const REPORT_TYPES: ReportType[] = [
   {
     id: 'baches',
@@ -158,6 +397,62 @@ export const REPORT_TYPES: ReportType[] = [
   },
 ];
 
+export type ReportClassification = {
+  emoji: string;
+  categoryLabel: string;
+  subcategoryLabel: string | null;
+  displayLabel: string;
+  isLegacy: boolean;
+};
+
+export function getReportCategory(id: string): ReportCategory | undefined {
+  return REPORT_CATEGORIES.find((c) => c.id === id);
+}
+
+export function getReportSubcategory(
+  categoryId: string,
+  subcategoryId: string
+): ReportSubcategory | undefined {
+  return getReportCategory(categoryId)?.subcategories.find((s) => s.id === subcategoryId);
+}
+
+/** @deprecated Use getReportCategory */
 export function getReportType(id: string): ReportType | undefined {
   return REPORT_TYPES.find((t) => t.id === id);
+}
+
+export function getReportClassification(reporte: {
+  tipo?: string;
+  categoria?: string;
+  subcategoria?: string;
+}): ReportClassification {
+  if (reporte.categoria) {
+    const category = getReportCategory(reporte.categoria);
+    const subcategory = reporte.subcategoria
+      ? getReportSubcategory(reporte.categoria, reporte.subcategoria)
+      : undefined;
+
+    const categoryLabel = category?.label || reporte.categoria;
+    const subcategoryLabel = subcategory?.label || reporte.subcategoria || null;
+    const displayLabel = subcategoryLabel
+      ? `${categoryLabel} · ${subcategoryLabel}`
+      : categoryLabel;
+
+    return {
+      emoji: subcategory?.emoji || category?.emoji || '📋',
+      categoryLabel,
+      subcategoryLabel,
+      displayLabel,
+      isLegacy: false,
+    };
+  }
+
+  const legacy = reporte.tipo ? getReportType(reporte.tipo) : undefined;
+  return {
+    emoji: legacy?.emoji || '📋',
+    categoryLabel: legacy?.label || reporte.tipo || 'Reporte',
+    subcategoryLabel: null,
+    displayLabel: legacy?.label || reporte.tipo || 'Reporte',
+    isLegacy: true,
+  };
 }

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import sharp from 'sharp';
 import { createReporte, listReportes } from '@/lib/aws/reportes';
 import { uploadImageToS3 } from '@/lib/aws/s3';
+import { getReportCategory, getReportSubcategory } from '@/lib/report-types';
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
 
-    const tipo = formData.get('tipo') as string;
+    const categoria = formData.get('categoria') as string | null;
+    const subcategoria = formData.get('subcategoria') as string | null;
+    const tipo = formData.get('tipo') as string | null;
     const descripcion = formData.get('descripcion') as string;
     const nombre = formData.get('nombre') as string;
     const telefono = formData.get('telefono') as string | null;
@@ -15,11 +19,21 @@ export async function POST(request: NextRequest) {
     const colonia = formData.get('colonia') as string | null;
     const referencia = formData.get('referencia') as string | null;
 
-    if (!tipo || !nombre || !calle) {
+    const hasNewClassification = Boolean(categoria && subcategoria);
+    const hasLegacyClassification = Boolean(tipo);
+
+    if ((!hasNewClassification && !hasLegacyClassification) || !nombre || !calle) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 });
     }
 
-    // Upload photos
+    if (hasNewClassification) {
+      const category = getReportCategory(categoria!);
+      const subcategory = getReportSubcategory(categoria!, subcategoria!);
+      if (!category || !subcategory) {
+        return NextResponse.json({ error: 'Categoría o subcategoría inválida' }, { status: 400 });
+      }
+    }
+
     const fotosFiles = formData.getAll('fotos') as File[];
     const fotosUrls: string[] = [];
     const fotosS3Keys: string[] = [];
@@ -27,15 +41,20 @@ export async function POST(request: NextRequest) {
     for (const file of fotosFiles) {
       if (file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const ext = file.name.endsWith('.png') ? '.png' : '.jpg';
-        const { url, key } = await uploadImageToS3(buffer, `reporte-${Date.now()}${ext}`, 'reportes');
+        const normalized = await sharp(buffer)
+          .rotate() // apply EXIF orientation and strip metadata
+          .jpeg({ quality: 90 })
+          .toBuffer();
+        const { url, key } = await uploadImageToS3(normalized, `reporte-${Date.now()}.jpg`, 'reportes');
         fotosUrls.push(url);
         fotosS3Keys.push(key);
       }
     }
 
     const reporte = await createReporte({
-      tipo,
+      ...(hasNewClassification
+        ? { categoria: categoria!, subcategoria: subcategoria! }
+        : { tipo: tipo! }),
       descripcion,
       nombre,
       ...(telefono ? { telefono } : {}),
@@ -55,7 +74,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  // Admin only
   const authToken = request.cookies.get('auth-token');
   if (!authToken || authToken.value !== 'authenticated') {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -63,10 +81,11 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const tipo = searchParams.get('tipo') || undefined;
+  const categoria = searchParams.get('categoria') || undefined;
   const estado = searchParams.get('estado') || undefined;
 
   try {
-    const reportes = await listReportes({ tipo, estado });
+    const reportes = await listReportes({ tipo, categoria, estado });
     return NextResponse.json({ reportes });
   } catch (error) {
     console.error('Error listing reportes:', error);

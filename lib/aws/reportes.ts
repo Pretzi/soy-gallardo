@@ -11,7 +11,10 @@ export type ReporteEstado = 'pendiente' | 'en_proceso' | 'resuelto' | 'cancelado
 export type Reporte = {
   id: string;
   folio: string;
-  tipo: string;
+  /** @deprecated Legacy field — use categoria/subcategoria for new reportes */
+  tipo?: string;
+  categoria?: string;
+  subcategoria?: string;
   descripcion: string;
   nombre: string;
   telefono?: string;
@@ -126,6 +129,7 @@ export async function getReporteByFolio(folio: string): Promise<Reporte | null> 
 
 export async function listReportes(options?: {
   tipo?: string;
+  categoria?: string;
   estado?: string;
 }): Promise<Reporte[]> {
   const allItems: Reporte[] = [];
@@ -135,7 +139,10 @@ export async function listReportes(options?: {
     const filterParts: string[] = ['begins_with(PK, :prefix)'];
     const exprValues: Record<string, unknown> = { ':prefix': 'REPORTE#' };
 
-    if (options?.tipo) {
+    if (options?.categoria) {
+      filterParts.push('categoria = :categoria');
+      exprValues[':categoria'] = options.categoria;
+    } else if (options?.tipo) {
       filterParts.push('tipo = :tipo');
       exprValues[':tipo'] = options.tipo;
     }
