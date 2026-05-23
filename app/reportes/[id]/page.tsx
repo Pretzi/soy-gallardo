@@ -153,6 +153,48 @@ export default function ReporteDetailPage() {
           {/* Right: Admin actions + photos */}
           <div className="space-y-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <h2 className="font-bold text-gray-700 text-sm uppercase tracking-wider mb-3">Oficio</h2>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-gray-600">Estado de firma</span>
+                  {reporte.oficioFirmado ? (
+                    <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-800">
+                      Firmado
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                      Pendiente de firma
+                    </span>
+                  )}
+                </div>
+                {reporte.oficioFirmadoAt && (
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">Firmado el:</span>{' '}
+                    {new Date(reporte.oficioFirmadoAt).toLocaleString('es-MX')}
+                  </p>
+                )}
+                {reporte.firmaUrl && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-2">Firma del ciudadano</p>
+                    <img
+                      src={reporte.firmaUrl}
+                      alt="Firma"
+                      className="max-h-24 bg-white border border-slate-200 rounded-lg p-2"
+                    />
+                  </div>
+                )}
+                <a
+                  href={`/api/reportes/${id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full py-2.5 text-center bg-white border border-slate-300 hover:border-orange-400 text-gray-800 font-semibold rounded-xl transition-colors text-sm"
+                >
+                  {reporte.oficioFirmado ? 'Descargar oficio firmado (PDF)' : 'Descargar borrador (PDF)'}
+                </a>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
               <h2 className="font-bold text-gray-700 text-sm uppercase tracking-wider mb-3">Gestión</h2>
 
               <div className="mb-4">

@@ -17,7 +17,10 @@ export async function POST(request: NextRequest) {
     const email = formData.get('email') as string | null;
     const calle = formData.get('calle') as string;
     const colonia = formData.get('colonia') as string | null;
+    const localidad = formData.get('localidad') as string | null;
     const referencia = formData.get('referencia') as string | null;
+    const latStr = formData.get('lat') as string | null;
+    const lngStr = formData.get('lng') as string | null;
 
     const hasNewClassification = Boolean(categoria && subcategoria);
     const hasLegacyClassification = Boolean(tipo);
@@ -61,7 +64,9 @@ export async function POST(request: NextRequest) {
       ...(email ? { email } : {}),
       calle,
       ...(colonia ? { colonia } : {}),
+      ...(localidad ? { localidad } : {}),
       ...(referencia ? { referencia } : {}),
+      ...(latStr && lngStr ? { lat: parseFloat(latStr), lng: parseFloat(lngStr) } : {}),
       fotosUrls,
       fotosS3Keys,
     });

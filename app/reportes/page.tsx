@@ -93,6 +93,7 @@ export default function ReportesPage() {
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Categoría</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">Ciudadano</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 hidden lg:table-cell">Fecha</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Oficio</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Estado</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -125,6 +126,17 @@ export default function ReportesPage() {
                             day: '2-digit', month: 'short', year: 'numeric'
                           })}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {r.oficioFirmado ? (
+                          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-800">
+                            Firmado
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                            Sin firma
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${STATUS_BADGE[r.estado]}`}>

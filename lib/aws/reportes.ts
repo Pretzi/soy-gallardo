@@ -21,17 +21,38 @@ export type Reporte = {
   email?: string;
   calle: string;
   colonia?: string;
+  localidad?: string;
   referencia?: string;
+  lat?: number;
+  lng?: number;
   estado: ReporteEstado;
   fotosUrls: string[];
   fotosS3Keys: string[];
   notasAdmin?: string;
+  oficioFirmado?: boolean;
+  oficioFirmadoAt?: string;
+  firmaUrl?: string;
+  firmaS3Key?: string;
+  oficioPdfUrl?: string;
+  oficioPdfS3Key?: string;
   createdAt: string;
   updatedAt: string;
 };
 
 export type ReporteCreate = Omit<Reporte, 'id' | 'folio' | 'estado' | 'createdAt' | 'updatedAt'>;
-export type ReporteUpdate = Partial<Pick<Reporte, 'estado' | 'notasAdmin'>>;
+export type ReporteUpdate = Partial<
+  Pick<
+    Reporte,
+    | 'estado'
+    | 'notasAdmin'
+    | 'oficioFirmado'
+    | 'oficioFirmadoAt'
+    | 'firmaUrl'
+    | 'firmaS3Key'
+    | 'oficioPdfUrl'
+    | 'oficioPdfS3Key'
+  >
+>;
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

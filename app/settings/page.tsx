@@ -246,6 +246,17 @@ export default function SettingsPage() {
         {/* Actions */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">⚙️ Acciones</h2>
+
+          <div className="space-y-3 mb-6">
+            <Link href="/settings/municipio">
+              <Button variant="secondary" className="w-full">
+                🏛️ Configuración Municipal (Directores y Oficios)
+              </Button>
+            </Link>
+            <p className="text-xs text-gray-600">
+              Nombres del alcalde, directores y asignación por categoría de reporte
+            </p>
+          </div>
           
           <div className="space-y-3">
             <Button

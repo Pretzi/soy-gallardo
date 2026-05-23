@@ -2,7 +2,8 @@
 
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { SignaturePad } from '@/components/SignaturePad';
 
 function GraciasContent() {
   const params = useSearchParams();
@@ -10,9 +11,26 @@ function GraciasContent() {
   const id = params.get('id') || '';
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [oficioFirmado, setOficioFirmado] = useState(false);
+  const [oficioFirmadoAt, setOficioFirmadoAt] = useState<string | null>(null);
 
   const imageUrl = id ? `/api/reportes/${id}/imagen` : null;
+
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/reportes/${id}/oficio`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.oficioFirmado) {
+          setOficioFirmado(true);
+          setOficioFirmadoAt(d.oficioFirmadoAt);
+        }
+      })
+      .catch(() => {});
+  }, [id]);
 
   const copyFolio = async () => {
     try {
@@ -48,10 +66,43 @@ function GraciasContent() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!id || !signature) return;
+    setDownloadingPdf(true);
+    try {
+      const res = await fetch(`/api/reportes/${id}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signatureDataUrl: signature }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Error');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `oficio-${folio}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setOficioFirmado(true);
+      setOficioFirmadoAt(new Date().toISOString());
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo descargar el oficio. Intenta de nuevo.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const handleRedownloadPdf = () => {
+    if (!id) return;
+    window.open(`/api/reportes/${id}/pdf`, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-0 py-0">
       <div className="w-full max-w-sm mx-auto text-center px-5 py-10">
-        {/* Animated checkmark */}
         <svg
           className="w-14 h-14 mx-auto mb-6"
           viewBox="0 0 64 64"
@@ -110,35 +161,79 @@ function GraciasContent() {
           </div>
         )}
 
+        {id && (
+          <div className="mb-6 text-left">
+            <p className="text-xs text-neutral-400 uppercase tracking-widest mb-3 text-center">
+              Oficio formal
+            </p>
+
+            {oficioFirmado ? (
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-4 text-center">
+                <p className="text-sm font-bold text-green-800">Oficio firmado</p>
+                {oficioFirmadoAt && (
+                  <p className="text-xs text-green-600 mt-1">
+                    {new Date(oficioFirmadoAt).toLocaleString('es-MX', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleRedownloadPdf}
+                  className="mt-3 text-sm font-semibold text-green-700 hover:text-green-900 underline"
+                >
+                  Volver a descargar PDF
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-700 mb-1 text-center font-semibold">
+                  Firma para descargar el oficio
+                </p>
+                <p className="text-sm text-gray-500 mb-4 text-center">
+                  El documento se dirige al Presidente Municipal y al director correspondiente. Debes firmar antes de descargarlo.
+                </p>
+                <SignaturePad onChange={setSignature} className="mb-3" />
+                {!signature && (
+                  <p className="text-xs text-amber-600 text-center mb-3">
+                    Dibuja tu firma arriba para habilitar la descarga
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={!signature || downloadingPdf}
+                  className="flex items-center justify-center gap-2 w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {downloadingPdf ? 'Generando PDF...' : 'Descargar oficio firmado'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {imageUrl && !imgError && (
           <button
             onClick={handleShare}
             disabled={sharing}
             className="flex items-center justify-center gap-2 w-full py-4 bg-black hover:bg-neutral-800 text-white font-bold rounded-2xl transition-colors text-sm mb-3 disabled:opacity-60"
           >
-            {sharing ? (
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-            )}
             {sharing ? 'Preparando...' : 'Compartir reporte'}
           </button>
         )}
 
         <Link
           href="/"
-          className="block w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl transition-colors text-sm"
+          className="block w-full py-4 bg-white border border-gray-200 hover:border-orange-300 text-gray-800 font-bold rounded-2xl transition-colors text-sm"
         >
           Reportar otro problema
         </Link>
       </div>
 
-      {/* Share image preview — below buttons */}
       {imageUrl && !imgError && (
         <div className="w-full max-w-sm mx-auto pb-10 px-5">
           <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-gray-200">
