@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEntry, updateEntry, deleteEntry } from '@/lib/aws/dynamo';
+import { removeEntryFromAlgolia, syncEntryToAlgolia } from '@/lib/algolia/sync-entry';
 import { entryUpdateSchema } from '@/lib/validation';
 
 export async function GET(
@@ -48,6 +49,8 @@ export async function PUT(
       );
     }
 
+    await syncEntryToAlgolia(entry);
+
     return NextResponse.json(entry);
   } catch (error: any) {
     console.error('Error in PUT /api/entries/[id]:', error);
@@ -75,6 +78,7 @@ export async function DELETE(
     
     // Delete entry
     await deleteEntry(id);
+    await removeEntryFromAlgolia(id);
 
     return NextResponse.json({ success: true, message: 'Entrada eliminada correctamente' });
   } catch (error: any) {

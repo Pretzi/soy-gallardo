@@ -59,7 +59,7 @@ export default function SeccionesPage() {
 
           const params = new URLSearchParams({
             seccion: seccionNumber,
-            limit: '1000', // Load all entries
+            limit: '0',
           });
 
           const response = await fetch(`/api/secciones?${params.toString()}`);

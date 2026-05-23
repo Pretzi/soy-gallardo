@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +26,11 @@ export default function EntriesPageClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
+
+  /** DOM timers return `number`; `ReturnType<typeof setTimeout>` often resolves to NodeJS.Timeout under @types/node. */
+  const debounceTimerRef = useRef<number | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const SEARCH_DEBOUNCE_MS = 280;
 
   const getDesiredPageFromUrl = useCallback(() => {
     // We read from the URL so Back/Forward restores the right page.
@@ -149,41 +154,93 @@ export default function EntriesPageClient() {
     }
   }, [allEntries.length, currentPage, getDesiredPageFromUrl, isLoading, setPageAndSlice]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) {
+  /** Live search (~Algolia/Dynamo via API when online); matches previous submit behavior + abort. */
+  const execSearch = useCallback(
+    async (trimmed: string, signal: AbortSignal) => {
+      setIsSearching(true);
+      try {
+        if (isOnline) {
+          try {
+            const response = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, { signal });
+            if (!response.ok) throw new Error('search failed');
+            const data = await response.json();
+            if (signal.aborted) return;
+            setSearchResults(data.entries ?? []);
+          } catch (fetchError) {
+            if (signal.aborted || (fetchError as Error).name === 'AbortError') return;
+            console.warn('Server search failed, searching locally:', fetchError);
+            const localResults = await searchEntriesLocal(trimmed);
+            if (signal.aborted) return;
+            setSearchResults(localResults);
+          }
+        } else {
+          const localResults = await searchEntriesLocal(trimmed);
+          if (signal.aborted) return;
+          setSearchResults(localResults);
+        }
+      } catch (error) {
+        if (signal.aborted || (error as Error).name === 'AbortError') return;
+        console.error('Error searching:', error);
+        alert('Error al buscar');
+      } finally {
+        if (!signal.aborted) setIsSearching(false);
+      }
+    },
+    [isOnline]
+  );
+
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    searchAbortRef.current?.abort();
+
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
       setSearchResults([]);
+      setIsSearching(false);
       return;
     }
 
-    try {
-      setIsSearching(true);
+    setIsSearching(true);
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    debounceTimerRef.current = window.setTimeout(() => {
+      debounceTimerRef.current = null;
+      void execSearch(trimmed, controller.signal);
+    }, SEARCH_DEBOUNCE_MS);
 
-      if (isOnline) {
-        // Try server search first
-        try {
-          const response = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
-          const data = await response.json();
-          setSearchResults(data.entries);
-        } catch (fetchError) {
-          console.warn('Server search failed, searching locally:', fetchError);
-          const localResults = await searchEntriesLocal(searchQuery);
-          setSearchResults(localResults);
-        }
-      } else {
-        // Search locally
-        const localResults = await searchEntriesLocal(searchQuery);
-        setSearchResults(localResults);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
-    } catch (error) {
-      console.error('Error searching:', error);
-      alert('Error al buscar');
-    } finally {
-      setIsSearching(false);
+      controller.abort();
+    };
+  }, [searchQuery, execSearch]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
+    searchAbortRef.current?.abort();
+
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    void execSearch(trimmed, controller.signal);
   };
 
-  const displayEntries = searchQuery.trim() ? searchResults : entries;
+  const trimmedSearch = searchQuery.trim();
+  const displayEntries = trimmedSearch ? searchResults : entries;
 
   const renderSyncBadge = (entry: SyncableEntry) => {
     if (!entry.syncStatus || entry.syncStatus === 'synced') return null;
@@ -293,13 +350,16 @@ export default function EntriesPageClient() {
         )}
 
         {/* Search Bar */}
-        <form onSubmit={handleSearch} className="mb-4">
+        <form onSubmit={handleSearchSubmit} className="mb-4">
           <div className="flex gap-2 items-stretch">
             <Input
-              placeholder="Buscar por folio o nombre..."
+              placeholder="Folio o nombre (resultados en vivo)…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 text-base md:text-sm"
+              aria-label="Buscar afiliados"
+              autoComplete="off"
+              spellCheck={false}
             />
             <Button type="submit" isLoading={isSearching} className="text-sm md:text-base px-4 md:px-6">
               Buscar
@@ -323,10 +383,18 @@ export default function EntriesPageClient() {
               </Button>
             )}
           </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Resultados en tiempo real al escribir. En línea, el servidor usa Algolia si está configurado; sin conexión se busca en la copia local.
+          </p>
         </form>
 
         {/* Filter Buttons */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-6">
+          <Link href="/entries/duplicates" className="flex-1 md:flex-none">
+            <Button variant="secondary" className="w-full text-sm md:text-base border-amber-200 bg-amber-50 hover:bg-amber-100">
+              Duplicados y similares
+            </Button>
+          </Link>
           <Link href="/localidades" className="flex-1 md:flex-none">
             <Button variant="secondary" className="w-full text-sm md:text-base">
               Ver por Comunidades
@@ -344,10 +412,14 @@ export default function EntriesPageClient() {
           <div className="text-center py-12">
             <p className="text-base md:text-lg text-gray-600">Cargando entradas...</p>
           </div>
+        ) : trimmedSearch && isSearching && searchResults.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-base md:text-lg text-gray-600">Buscando…</p>
+          </div>
         ) : !displayEntries || displayEntries.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-base md:text-lg text-gray-600">
-              {searchQuery ? 'No se encontraron resultados' : 'No hay entradas registradas'}
+              {trimmedSearch ? 'No se encontraron resultados' : 'No hay entradas registradas'}
             </p>
           </div>
         ) : (
@@ -466,7 +538,7 @@ export default function EntriesPageClient() {
             </div>
 
             {/* Pagination */}
-            {!searchQuery && totalCount > itemsPerPage && (
+            {!trimmedSearch && totalCount > itemsPerPage && (
               <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-gray-600">
                   Mostrando {((currentPage - 1) * itemsPerPage) + 1} -{' '}
