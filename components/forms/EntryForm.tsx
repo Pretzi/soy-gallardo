@@ -52,6 +52,7 @@ export function EntryForm({
     metodoContacto: initialData?.metodoContacto || '',
     fechaNacimiento: initialData?.fechaNacimiento || '',
     seccionElectoral: initialData?.seccionElectoral || '',
+    casilla: initialData?.casilla || '',
     notasApoyos: initialData?.notasApoyos || '',
     localidad: initialData?.localidad || '',
     selfieS3Key: initialData?.selfieS3Key || '',
@@ -88,6 +89,7 @@ export function EntryForm({
         ...(initialData.metodoContacto && { metodoContacto: initialData.metodoContacto }),
         ...(initialData.fechaNacimiento && { fechaNacimiento: initialData.fechaNacimiento }),
         ...(initialData.seccionElectoral && { seccionElectoral: initialData.seccionElectoral }),
+        ...(initialData.casilla && { casilla: initialData.casilla }),
         ...(initialData.localidad && { localidad: initialData.localidad }),
         ...(initialData.notasApoyos && { notasApoyos: initialData.notasApoyos }),
       }));
@@ -610,6 +612,10 @@ export function EntryForm({
           placeholder="Buscar sección..."
           options={secciones}
           value={(() => {
+            // Prefer stored casilla (full text) for display
+            const casilla = formData.casilla;
+            if (casilla && casilla.startsWith('(')) return casilla;
+
             // If we have a section number (e.g., "3877"), find the full text
             const seccion = formData.seccionElectoral;
             if (!seccion) return '';
@@ -629,7 +635,11 @@ export function EntryForm({
             // Extract just the number from the selected section
             const match = value.match(/\((\d+)\)/);
             const seccionNumber = match ? match[1] : value;
-            setFormData((prev) => ({ ...prev, seccionElectoral: seccionNumber }));
+            setFormData((prev) => ({
+              ...prev,
+              seccionElectoral: seccionNumber,
+              casilla: value,
+            }));
           }}
           error={errors.seccionElectoral}
         />
